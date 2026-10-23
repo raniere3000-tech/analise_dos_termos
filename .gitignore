@@ -1,0 +1,5 @@
+# Nunca versionar dados da base
+*.xlsx
+*.xls
+*.csv
+~$*
