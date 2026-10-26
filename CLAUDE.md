@@ -7,7 +7,7 @@ Contexto para continuar o desenvolvimento no Claude Code.
 - **Pergunte antes de executar.** Quando houver dúvida sobre regra de negócio, layout ou formato, pergunte antes de mudar o código.
 - **Valide os números.** Confira toda mudança de cálculo com `tests/conferir_totais.py`, que recalcula o Resumo em Python de forma independente.
 - **Mantenha um arquivo só.** O painel é um único `index.html`, sem build e sem dependências além das Google Fonts.
-- **Escreva em português do Brasil.** Interface e comentários em português.
+- **Escreva sempre em português do Brasil.** Interface, comentários, mensagens de commit e **toda a comunicação com o usuário**: o passo a passo do que está sendo feito, os resumos, as explicações e as perguntas. O usuário pediu isso mais de uma vez; nunca responda em inglês.
 - **Aumente a versão a cada atualização.** A constante `VERSAO_SITE` no `index.html` aparece no cabeçalho.
 - **Estilo:** o mesmo do painel de economias de esgoto (repositório economias), que copia o painel de faturamento: IBM Plex Sans, marinho `#102840`, azul `#176b9c`, fundo `#f3f6f9`; positivo em marinho e azul, negativo em laranja (`#E8710A`, texto `#C2560C`). O leitor de .xlsx em fluxo, os filtros, o gráfico com tabela alinhada e a dica ao passar o mouse vieram de lá.
 
