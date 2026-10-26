@@ -21,8 +21,17 @@ Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou
 
 ## Classificação
 
-- **Faixa no mês do termo:** os 12 meses anteriores. Até 2 meses sem pagar: Adimplente; até 6: Flutuante; pagou de 1 a 5: Inadimplente; nenhum: Nunca pagou.
-- **Faixa depois:** do mês do termo até o último mês da análise (no máximo 12 meses), com limites ajustáveis para cada quantidade de meses em **Ajustar parâmetros**.
+- **Antes do termo:** os 12 meses anteriores ao mês do termo. Adimplente: pagou de 10 a 12 meses; Flutuante: de 6 a 9; Inadimplente: de 1 a 5; Nunca pagou: nenhum.
+- **Depois do termo:** do mês seguinte ao termo até o último mês completo (no máximo 12 meses), pelo % de meses pagos. Adimplente: 83,3% ou mais; Flutuante: de 50% a 83,3%; Inadimplente: acima de 0% e abaixo de 50%; Nunca pagou: 0%.
+- Com menos de 3 meses depois do termo, o cliente fica em **Acompanhamento insuficiente**, sem contar como melhora, piora ou permanência.
+- O mês do termo fica fora dos dois períodos. Se a matrícula recebeu outro termo, o período depois termina antes dele.
+- Os parâmetros (unidade de análise, mês do pagamento, último mês, limites) ficam em **Ajustar parâmetros**.
+
+**Limitação:** sem base de faturamento, um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar.
+
+## Versão anterior
+
+A versão 1.1 continua disponível em `versoes/v1.1/index.html` e no branch `versao-1.1`.
 
 ## Privacidade
 
