@@ -168,7 +168,11 @@ for a in range(A0, A_FIM):
         if L['corte'] is not None and a >= L['corte']:
             continue
         base = [L['num'], 'NORMAL', L['nome'], L['util'], 1, 0, 0, 0, 0, 'RUA A', '10', '', 'CENTRO', L['zona'], 'RUA A, 10', 1, 1]
-        fim = [f'{m:02d}/{y}', 'NORMAL', 'NORMAL', 'LIBERADA', f'{ym(a - 1)[1]:02d}/{ym(a - 1)[0]}', date(y, m, 10), 'LIGADA', 'NORMAL']
+        # a última conta antes do corte vem com a ligação CORTADA; 1 em cada 4 cortes fica como SUPRIMIDA (não marcada como corte)
+        sit = 'LIGADA'
+        if L['corte'] is not None and a == L['corte'] - 1:
+            sit = 'SUPRIMIDA' if L['num'] % 4 == 0 else 'CORTADA'
+        fim = [f'{m:02d}/{y}', 'NORMAL', 'NORMAL', 'LIBERADA', f'{ym(a - 1)[1]:02d}/{ym(a - 1)[0]}', date(y, m, 10), sit, 'NORMAL']
         agua = round(L['valor'] * (.5 if L['esgoto'] else 1), 2)
         ws.append(base + ['VALOR DE AGUA', agua] + fim)
         if L['esgoto']:

@@ -21,7 +21,7 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 - **Arrecadação:** de jan/2025 até o mês atual. Meses fechados na pasta `arrecadação acumulada`, mês atual na pasta `arrecadação diária`. Colunas da exportação: `Nº Ligação, Nº Nota, Mês, Ano, Valor Pago, Vencimento, Data Pagto., Data Atualiz., Data Crédito, Val. Autenticado, Utilização (Sub. Categ.), Zona (Localidade), Classificação, Nº Contrato, Cliente, Tipo Fatura, Situação Pagto, Banco, Tipo Pagamento`. Formatos .xlsx e .csv.
 - **Termos (desde a v1.1):** arquivo com "termo" no nome (hoje `termos_todos_os_termos_AAAA-MM-DD.xlsx`). Lê **só a aba Termos**; a aba Resumo é ignorada (`Termos.abas()`). Colunas da exportação: `Nº O.S., Matrícula, Frente, Cidade, Zona, Equipe, Tipo de atividade, Status da atividade, Serviço adicional identificado, Data de aplicação, Data de notificação, Data de negociação, Nome do solicitante, Categoria, Situação da ligação, Situação do termo, Faturado, Dias, Faixa, Valor, Isento, Motivo da isenção, Origem, Arquivo da aplicação, Arquivo de status, Arquivo de faturamento`.
   - `Matrícula` é o mesmo número que o `Nº Ligação` da arrecadação (confirmado pelo usuário).
-  - **Mês do termo = Data de negociação** (definido pelo usuário). Linha sem Data de negociação usa a Data de aplicação (confirmado na v2.1; em geral são termos isentos ou cancelados, com Valor 0).
+  - **Mês do termo = Data de negociação** (padrão, definido pelo usuário), com chave **Data do termo** na barra superior para usar a Data de aplicação (v2.6). Quando a data escolhida está vazia, vale a outra. O worker guarda as linhas de termo com as duas datas (`tMat, tNeg, tApl, tNegTxt, tAplTxt, tValor, tTipo, tCid, tExtra`) e a página monta os eventos em `montaEventos()`; só entram termos de 2026 pela data escolhida.
   - **Termo com Valor = 0 fica fora da análise** (v2.1, definido pelo usuário: são isentos ou cancelados). O rodapé mostra quantos.
   - Tipo de termo = `Tipo de atividade`; valor = `Valor`. Fora o Valor 0, nenhum termo é excluído por status, situação ou isenção.
   - Filtros vindos da base de termos (`EXTRAS`): Situação do termo, Faturado, Isento, Frente, Equipe, Categoria e Origem. Coluna ausente no arquivo não vira filtro. Também aparecem no Consolidado e no CSV.
@@ -30,6 +30,7 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
   - Só as rubricas `VALOR DE AGUA` e `VALOR DE ESGOTO` (coluna Valor Parcela); quem paga esgoto tem as duas linhas e a conta do mês é a soma (definido pelo usuário). O usuário escreveu "coluna I", mas a Rubrica é a coluna R; o painel lê pelo nome.
   - **Mês da conta = mês da Data de Vencimento** (definido pelo usuário). Todas as situações de conta entram (os meses analisados são fechados).
   - Nome Cliente do faturamento preenche o nome de quem não tem pagamento na arrecadação.
+  - **Ligação cortada (v2.6, definido pelo usuário):** pela coluna `Situacao Ligacao` da **última conta** da matrícula no faturamento (`fatUlt` = mês da última conta, `fatSitLig` = situação). Os valores que indicam corte são escolhidos em "Situações de corte" nos parâmetros (`P.corteVals`; padrão: os que têm CORT no texto).
 - Nomes de coluna são comparados sem acento, maiúsculas e pontuação (`norm()`: "Nº Ligação" vira `N_LIGACAO`).
 - Número da ligação normalizado em `ligKey()` (sem zeros à esquerda), igual nas duas bases.
 
@@ -48,7 +49,9 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 
 ## Regras de negócio (v2.0, definidas com o usuário)
 
-- **Unidade de análise:** padrão é a matrícula única com o primeiro termo do ano; parâmetro permite cada termo (evento). Em qualquer caso, o período depois termina no mês anterior ao termo seguinte da mesma matrícula (não mistura dois termos).
+- **Unidade de análise:** padrão é a matrícula única com o primeiro termo do ano, **acompanhado até o fim mesmo que venha outro termo** (v2.6, definido pelo usuário); o painel avisa quantas matrículas são reincidentes e tem o filtro Reincidente. Por evento (parâmetro), o período depois termina no mês anterior ao termo seguinte da mesma matrícula.
+- **Ligação cortada depois do termo (v2.6, definido pelo usuário):** com faturamento, para matrícula cortada, os meses do período depois sem conta e posteriores à última conta contam como observados e **não pagos** (`D.ncD`). Assim, quem não pagou nada fica Nunca pagou e quem pagou parte fica Inadimplente ou Flutuante. Só vale para o período depois. Coluna e filtro "Ligação cortada" e "corte" na grade de clientes.
+- **Mínimo de meses depois:** na barra superior (v2.6), padrão 3.
 - **Mês vigente (v2.2, definido pelo usuário):** seletor na barra superior, abre no mês de hoje. É o mês ainda não fechado: termos com mês ≥ mês vigente ficam fora (`D.foraVig`), a análise vai até o mês anterior (`idxUltimo()`), e os créditos do mês vigente (arrecadação diária) só servem para pagar com atraso contas dos meses anteriores. Contas com vencimento no mês vigente não entram.
 - **Conta paga (v2.2, definido pelo usuário):** com faturamento e a coluna Vencimento na arrecadação (`D.porConta`), a conta que vence no mês r está paga se entrou crédito daquela conta (mesmo mês de vencimento na arrecadação) até o fim do mês r + tolerância e no máximo no mês vigente. Tolerância padrão: até o fim do mês seguinte (parâmetro "Pagamento com atraso aceito": só no mês, mês seguinte, 2 meses, qualquer data). Vale igual para todos os meses. Pagamento muito atrasado (dívida negociada depois do termo) não limpa o período antes do termo.
 - **Mês pago sem faturamento** (ou sem a coluna Vencimento): soma do Valor Pago no mês > 0, pela **Data Crédito** (definido pelo usuário na v2.1); parâmetros permitem a Data Pagto. ou a referência da fatura (Mês/Ano). Com faturamento e Vencimento, esse parâmetro fica desligado na tela.
@@ -59,7 +62,8 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 - **Depois:** do mês seguinte ao termo até o último mês completo, no máximo 12 meses. % de meses pagos = pagos / observados. Adimplente ≥ 83,3%; Flutuante ≥ 50%; Inadimplente > 0%; Nunca pagou 0%. Menos de 3 meses observados: **Acompanhamento insuficiente**, fora de melhora, piora e permanência. Limiares e mínimo são parâmetros.
 - **Resultado:** ordem Adimplente → Flutuante → Inadimplente → Nunca pagou; ir para trás é melhora, para frente é piora.
 - **Acompanhamento insuficiente (v2.5):** conta todos com menos meses observados que o mínimo depois do termo, **inclusive os sem histórico antes**; é o mesmo número no card, na coluna da matriz, no gráfico de perfil e nas tabelas (antes da v2.5 o card e o gráfico deixavam os sem histórico de fora e o usuário viu 835 na matriz e 677 no gráfico). `D.motivo` diz o porquê: 1 termo recente (menos meses fechados que o mínimo entre o termo e o último mês), 2 período encurtado por outro termo, 3 meses sem dados, 4 sem conta a pagar no faturamento depois do termo. `D.motivoA`: sem histórico por falta de dados (1) ou por não ter conta a pagar nos 12 meses antes (2). Os motivos aparecem abaixo da matriz e na coluna Motivo da tabela de clientes.
-- **Premissa em revisão (v2.5):** na base real, 835 de 1.328 clientes ficaram com acompanhamento insuficiente e 183 sem histórico antes. O usuário pediu para rever a premissa se isso estiver certo; os motivos foram incluídos para decidir (perguntar antes de mudar mínimo de meses, data do termo ou início do período depois).
+- **Premissa revista (v2.6):** na base real (v2.5), 835 de 1.328 ficaram com acompanhamento insuficiente: 459 termo recente, 66 período encurtado por outro termo, 310 sem conta a pagar depois do termo; e 183 sem histórico antes (todos sem conta nos 12 meses antes). Decisões do usuário: primeiro termo até o fim (acaba com os 66), cortadas contam meses sem conta como não pagos (parte dos 310), chave entre Data de negociação e de aplicação, mínimo de meses na barra superior, período depois começa no mês seguinte ao termo (já era assim), e análise à parte dos sem histórico.
+- **Sem histórico antes (v2.6):** cartão próprio no Resumo com a classificação depois do termo, já que não há um antes para comparar.
 - **Comparáveis:** com classificação antes e depois (não insuficiente). São o denominador de melhora, piora e permanência.
 - **Recuperados:** Inadimplente ou Nunca pagou antes que passaram a Adimplente ou Flutuante, sobre os comparáveis desses dois grupos. "Pagaram ao menos 1 mês" é mostrado separado (registro de pagamento, não recuperação).
 - **Sem faturamento** (base ausente ou parâmetro desligado): todo mês é observado, e mês sem pagamento conta como não pago mesmo sem conta a pagar; o painel mostra esse aviso.
@@ -75,7 +79,7 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 ## Versões anteriores
 
 - v1.1 guardada em `versoes/v1.1/index.html` (abre pelo GitHub Pages em `/versoes/v1.1/`) e no branch `versao-1.1`.
-- v2.0 guardada em `versoes/v2.0/index.html` e no branch `versao-2.0`; v2.1 a v2.4 em `versoes/` e nos branches `versao-2.1` a `versao-2.4`. Guarde a versão anterior assim a cada mudança grande. As tags `v1.0` e `v1.1` existem no repositório local, mas o envio de tags é bloqueado pelo proxy da sessão.
+- v2.0 guardada em `versoes/v2.0/index.html` e no branch `versao-2.0`; v2.1 a v2.5 em `versoes/` e nos branches `versao-2.1` a `versao-2.5`. O branch `v25-envio` sobrou de um teste de envio (o proxy não deixa apagar branches); pode ser apagado pelo GitHub. Guarde a versão anterior assim a cada mudança grande. As tags `v1.0` e `v1.1` existem no repositório local, mas o envio de tags é bloqueado pelo proxy da sessão.
 
 ## Pendências
 
@@ -90,14 +94,17 @@ python tests/gerar_base_teste.py base_teste                   # base sintética 
 python tests/conferir_totais.py base_teste 2026-10                  # padrão: mês vigente out/26, crédito, matrícula, faturamento, atraso até o mês seguinte
 python tests/conferir_totais.py base_teste 2026-10 cred mat 1 0     # conta paga só no mês do vencimento
 python tests/conferir_totais.py base_teste 2026-10 cred mat 0       # sem faturamento (todos os meses observados)
-python tests/conferir_totais.py base_teste 2026-09 cred evento 1 1  # mês vigente set/26, cada termo como evento
+python tests/conferir_totais.py base_teste 2026-10 cred evento 1 1  # cada termo como evento
+python tests/conferir_totais.py base_teste 2026-10 cred mat 1 1 apl    # mês do termo pela Data de aplicação
+python tests/conferir_totais.py base_teste 2026-10 cred mat 1 1 neg 2  # mínimo de 2 meses depois
 ```
 
-Valores de referência (v2.2) com a base sintética padrão (3000 ligações, semente 7, com Faturamento; 3% dos pagamentos com 2 meses de atraso):
-- padrão (vigente out/26): 636 clientes (23 sem histórico), 364 comparáveis, 30 melhoraram, 178 pioraram, 156 permaneceram, 272 insuficientes (213 termo recente, 17 outro termo, 42 sem conta), 13 recuperados de 83; média mensal R$ 130,08 antes e R$ 96,57 depois;
-- atraso só no mês: 49, 165, 150, 272; 18 de 117;
-- sem faturamento: 406 comparáveis, 58, 178, 170, 230; 23 de 131;
-- vigente set/26, por evento: 582 termos, 325 comparáveis, 32, 156, 137, 257 (207, 14, 36); 15 de 75.
+Valores de referência (v2.6) com a base sintética padrão (3000 ligações, semente 7, com Faturamento e Situacao Ligacao CORTADA ou SUPRIMIDA na última conta antes do corte), mês vigente out/26:
+- padrão: 636 clientes (23 sem histórico), 407 comparáveis, 32 melhoraram, 197 pioraram, 178 permaneceram, 225 insuficientes (213 termo recente, 12 sem conta), 13 recuperados de 114; 52 cortadas com meses de corte, 37 em Nunca pagou; 28 reincidentes;
+- Data de aplicação: 597, 400, 32, 191, 177, 193; 12 de 111;
+- mínimo de 2 meses: 467 comparáveis, 37, 222, 208, 161; 16 de 128;
+- por evento: 657 termos, 400, 31, 194, 175, 252 (223 recente, 17 outro termo, 12 sem conta); 12 de 110;
+- sem faturamento: 423, 62, 190, 171, 213; 25 de 136.
 
 No teste com Playwright, `setInputFiles` descarta arquivos cujo caminho tem acento (as pastas "Arrecadação…"): copie a base para pastas sem acento antes de testar.
 

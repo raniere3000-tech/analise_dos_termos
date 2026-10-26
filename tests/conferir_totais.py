@@ -1,9 +1,10 @@
 """Recalcula em Python, de forma independente, os números do Resumo do painel (v2, parâmetros padrão).
 
-Uso: python tests/conferir_totais.py PASTA [MES_VIGENTE=AAAA-MM] [modo=cred|pag|ref] [unidade=mat|evento] [fat=1|0] [tolerancia=1]
+Uso: python tests/conferir_totais.py PASTA [MES_VIGENTE=AAAA-MM] [modo=cred|pag|ref] [unidade=mat|evento] [fat=1|0] [tolerancia=1] [data=neg|apl] [minimo=3]
 
 Regras (as mesmas do painel):
-- Termos: arquivo com "termo" no nome, só a aba Termos. Mês do termo = Data de negociação (sem ela, Data de aplicação).
+- Termos: arquivo com "termo" no nome, só a aba Termos. Mês do termo = Data de negociação (sem ela, Data de aplicação),
+  ou o contrário com data=apl.
   Termos com Valor 0 ficam fora. Termos da mesma matrícula no mesmo mês são um evento só. Unidade "mat" usa o
   primeiro termo do ano de cada matrícula.
 - Mês pago: soma do Valor Pago no mês > 0 (pela Data Crédito, pela Data Pagto. ou pela referência Mês/Ano).
@@ -32,7 +33,9 @@ MODO = sys.argv[3] if len(sys.argv) > 3 else 'cred'
 UNIDADE = sys.argv[4] if len(sys.argv) > 4 else 'mat'
 USA_FAT = (sys.argv[5] if len(sys.argv) > 5 else '1') == '1'
 TOL = int(sys.argv[6]) if len(sys.argv) > 6 else 1
-MIN, ADIM, FLUT = 3, 83.3, 50.0
+DATA = sys.argv[7] if len(sys.argv) > 7 else 'neg'
+ADIM, FLUT = 83.3, 50.0
+MIN = int(sys.argv[8]) if len(sys.argv) > 8 else 3
 FAIXAS = ['Adimplente', 'Flutuante', 'Inadimplente', 'Nunca pagou', 'Acomp. insuf.']
 
 
@@ -109,14 +112,15 @@ for a in arquivos:
         il = h.index('MATRICULA') if 'MATRICULA' in h else h.index('N_LIGACAO')
         ineg, iapl, ival = h.index('DATA_DE_NEGOCIACAO'), h.index('DATA_DE_APLICACAO'), h.index('VALOR')
         for l in linhas:
-            k, d = lig(l[il]), data(l[ineg]) or data(l[iapl])
+            k = lig(l[il])
+            d = (data(l[ineg]) or data(l[iapl])) if DATA == 'neg' else (data(l[iapl]) or data(l[ineg]))
             if not k or not d or d[0] // 12 != 2026 or not num(l[ival]) > 0:
                 continue
             ev = termos.setdefault(k, {})
             ev[d[0]] = min(ev.get(d[0], d[1]), d[1])
 
 pag, vistos, min_am, max_am, cobertura, cred_venc = {}, set(), 10 ** 9, -1, set(), {}
-fat, vistos_fat, cob_fat = {}, set(), set()
+fat, vistos_fat, cob_fat, ult_conta = {}, set(), set(), {}
 for a in arquivos:
     if 'termo' in os.path.basename(a).lower():
         continue
@@ -125,7 +129,7 @@ for a in arquivos:
         if not h:
             continue
         if 'RUBRICA' in h:
-            il, ir, iv, ive, irl = (h.index(n) for n in ('N_DA_LIGACAO', 'RUBRICA', 'VALOR_PARCELA', 'DATA_DE_VENCIMENTO', 'REFERENCIA_DE_LEITURA'))
+            il, ir, iv, ive, irl, isl = (h.index(n) for n in ('N_DA_LIGACAO', 'RUBRICA', 'VALOR_PARCELA', 'DATA_DE_VENCIMENTO', 'REFERENCIA_DE_LEITURA', 'SITUACAO_LIGACAO'))
             for l in linhas:
                 k = lig(l[il])
                 if k not in termos or norm(l[ir]) not in ('VALOR_DE_AGUA', 'VALOR_DE_ESGOTO'):
@@ -137,6 +141,8 @@ for a in arquivos:
                 vistos_fat.add(chave)
                 cob_fat.add(d[0])
                 fat[(k, d[0])] = fat.get((k, d[0]), 0) + v
+                if d[0] >= ult_conta.get(k, (-1, ''))[0]:
+                    ult_conta[k] = (d[0], str(l[isl] or '').upper())
             continue
         ix = {n: h.index(n) for n in ('N_LIGACAO', 'N_NOTA', 'MES', 'ANO', 'VALOR_PAGO', 'DATA_PAGTO', 'DATA_CREDITO', 'VENCIMENTO')}
         for l in linhas:
@@ -200,13 +206,17 @@ for k, evs in termos.items():
             continue
         c['total'] += 1
         fim = min(ult, t + 12)
-        corte = False
-        if i + 1 < len(meses) and meses[i + 1] - 1 < fim:
+        corte = False   # com a matrícula como unidade, o primeiro termo vai até o fim (v2.6)
+        if UNIDADE == 'evento' and i + 1 < len(meses) and meses[i + 1] - 1 < fim:
             fim, corte = meses[i + 1] - 1, True
         ja = [m for m in range(t - 12, t) if ok(m)]
         jd = [m for m in range(t + 1, fim + 1) if ok(m)]
         va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
-        oa, od = [pago(k, m) for m in ja if conta(k, m)], [pago(k, m) for m in jd if conta(k, m)]   # meses observados
+        uc = ult_conta.get(k)
+        cortada = USA_FAT and uc is not None and 'CORT' in uc[1]
+        # ligação cortada: depois do termo, mês sem conta depois da última conta conta como não pago
+        oa = [pago(k, m) for m in ja if conta(k, m)]
+        od = [pago(k, m) if conta(k, m) else False for m in jd if conta(k, m) or (cortada and m > uc[0])]
         ca, cd = antes(sum(oa), len(oa)), depois(sum(od), len(od))
         if cd == 4:
             motivos[1 if min(ult, t + 12) - t < MIN else 2 if corte and fim - t < MIN else 3 if len(jd) < MIN else 4] += 1
