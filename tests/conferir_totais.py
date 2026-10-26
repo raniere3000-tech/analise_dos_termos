@@ -1,14 +1,16 @@
 """Recalcula em Python, de forma independente, os números do Resumo do painel (v2, parâmetros padrão).
 
-Uso: python tests/conferir_totais.py PASTA [ULTIMO_MES=AAAA-MM] [modo=cred|pag|ref] [unidade=mat|evento] [fat=1|0]
+Uso: python tests/conferir_totais.py PASTA [MES_VIGENTE=AAAA-MM] [modo=cred|pag|ref] [unidade=mat|evento] [fat=1|0] [tolerancia=1]
 
 Regras (as mesmas do painel):
 - Termos: arquivo com "termo" no nome, só a aba Termos. Mês do termo = Data de negociação (sem ela, Data de aplicação).
   Termos com Valor 0 ficam fora. Termos da mesma matrícula no mesmo mês são um evento só. Unidade "mat" usa o
   primeiro termo do ano de cada matrícula.
 - Mês pago: soma do Valor Pago no mês > 0 (pela Data Crédito, pela Data Pagto. ou pela referência Mês/Ano).
+- Mês vigente: termos dele (ou depois) ficam fora; a análise vai até o mês anterior.
 - Faturamento (tabelas com a coluna Rubrica): conta do mês = VALOR DE AGUA + VALOR DE ESGOTO pela Data de Vencimento.
-  Com fat=1, só os meses com conta > 0 são observados.
+  Com fat=1, só os meses com conta > 0 são observados, e a conta do mês r é paga se houve crédito daquela conta
+  (Vencimento da arrecadação no mês r) até o mês r + tolerância, e no máximo no mês vigente.
 - Mês sem dados: mês sem nenhum pagamento na base inteira (ou sem faturamento, com fat=1); fica fora das janelas.
 - Média mensal: valor arrecadado no período / meses do período com dados.
 - Antes: 12 meses anteriores ao mês do termo. 10 a 12 pagos (proporcional, ≥ 10/12) Adimplente, ≥ 6/12 Flutuante, > 0 Inadimplente, 0 Nunca pagou.
@@ -25,10 +27,11 @@ from datetime import date, datetime, timedelta
 from openpyxl import load_workbook
 
 pasta = sys.argv[1]
-ULT = sys.argv[2] if len(sys.argv) > 2 else None
+VIG = sys.argv[2] if len(sys.argv) > 2 else None
 MODO = sys.argv[3] if len(sys.argv) > 3 else 'cred'
 UNIDADE = sys.argv[4] if len(sys.argv) > 4 else 'mat'
 USA_FAT = (sys.argv[5] if len(sys.argv) > 5 else '1') == '1'
+TOL = int(sys.argv[6]) if len(sys.argv) > 6 else 1
 MIN, ADIM, FLUT = 3, 83.3, 50.0
 FAIXAS = ['Adimplente', 'Flutuante', 'Inadimplente', 'Nunca pagou', 'Acomp. insuf.']
 
@@ -112,7 +115,7 @@ for a in arquivos:
             ev = termos.setdefault(k, {})
             ev[d[0]] = min(ev.get(d[0], d[1]), d[1])
 
-pag, vistos, min_am, max_am, cobertura = {}, set(), 10 ** 9, -1, set()
+pag, vistos, min_am, max_am, cobertura, cred_venc = {}, set(), 10 ** 9, -1, set(), {}
 fat, vistos_fat, cob_fat = {}, set(), set()
 for a in arquivos:
     if 'termo' in os.path.basename(a).lower():
@@ -135,7 +138,7 @@ for a in arquivos:
                 cob_fat.add(d[0])
                 fat[(k, d[0])] = fat.get((k, d[0]), 0) + v
             continue
-        ix = {n: h.index(n) for n in ('N_LIGACAO', 'N_NOTA', 'MES', 'ANO', 'VALOR_PAGO', 'DATA_PAGTO', 'DATA_CREDITO')}
+        ix = {n: h.index(n) for n in ('N_LIGACAO', 'N_NOTA', 'MES', 'ANO', 'VALOR_PAGO', 'DATA_PAGTO', 'DATA_CREDITO', 'VENCIMENTO')}
         for l in linhas:
             k = lig(l[ix['N_LIGACAO']])
             if not k:
@@ -155,11 +158,17 @@ for a in arquivos:
             vistos.add(chave)
             if v > 0:
                 pag[(k, mes)] = pag.get((k, mes), 0) + v
+                ve = data(l[ix['VENCIMENTO']])
+                if ve:
+                    cred_venc[(k, ve[0])] = min(cred_venc.get((k, ve[0]), dc[0]), dc[0])
 
-ult = int(ULT[:4]) * 12 + int(ULT[5:7]) - 1 if ULT else max_am - 1
+vig = int(VIG[:4]) * 12 + int(VIG[5:7]) - 1 if VIG else max_am
+ult = vig - 1
 USA_FAT = USA_FAT and bool(fat)
 ok = lambda m: min_am <= m <= ult and m in cobertura and (not USA_FAT or m in cob_fat)
 conta = lambda k, m: not USA_FAT or fat.get((k, m), 0) > 0
+# conta paga: crédito daquela conta (mesmo vencimento) até o mês + tolerância e até o mês vigente; sem faturamento, crédito no mês
+pago = lambda k, m: (cred_venc.get((k, m), 10 ** 9) <= min(m + TOL, vig)) if USA_FAT else pag.get((k, m), 0) > 0
 
 
 def antes(p, n):
@@ -186,6 +195,8 @@ for k, evs in termos.items():
     for i, t in enumerate(meses):
         if UNIDADE == 'mat' and i > 0:
             break
+        if t >= vig:   # termo do mês vigente: fora
+            continue
         c['total'] += 1
         fim = min(ult, t + 12)
         if i + 1 < len(meses):
@@ -193,8 +204,8 @@ for k, evs in termos.items():
         ja = [m for m in range(t - 12, t) if ok(m)]
         jd = [m for m in range(t + 1, fim + 1) if ok(m)]
         va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
-        oa, od = [pag.get((k, m), 0) for m in ja if conta(k, m)], [pag.get((k, m), 0) for m in jd if conta(k, m)]   # meses observados
-        ca, cd = antes(sum(v > 0 for v in oa), len(oa)), depois(sum(v > 0 for v in od), len(od))
+        oa, od = [pago(k, m) for m in ja if conta(k, m)], [pago(k, m) for m in jd if conta(k, m)]   # meses observados
+        ca, cd = antes(sum(oa), len(oa)), depois(sum(od), len(od))
         if ca < 0:
             c['semhist'] += 1
             continue
@@ -210,7 +221,7 @@ for k, evs in termos.items():
 
 rot = lambda a: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][a % 12] + '/' + str(a // 12)[2:]
 sem = [rot(m) for m in range(min_am, ult + 1) if not ok(m)]
-print(f'Pagamentos de {rot(min_am)} a {rot(max_am)}, análise até {rot(ult)}, modo {MODO}, unidade {UNIDADE}, faturamento {"sim" if USA_FAT else "não"}' + (f', meses sem dados: {", ".join(sem)}' if sem else ''))
+print(f'Pagamentos de {rot(min_am)} a {rot(max_am)}, mês vigente {rot(vig)}, análise até {rot(ult)}, tolerância {TOL}, modo {MODO}, unidade {UNIDADE}, faturamento {"sim" if USA_FAT else "não"}' + (f', meses sem dados: {", ".join(sem)}' if sem else ''))
 print(f"Total: {c['total']} | suficiente: {c['comp']} | melhoraram: {c['melhorou']} | pioraram: {c['piorou']} | permaneceram: {c['igual']} | insuficiente: {c['insuf']} | sem histórico: {c['semhist']}")
 print(f"Recuperados: {c['recup']} de {c['naopag']} | média mensal por cliente comparável: antes R$ {c['mA'] / max(1, c['comp']):,.2f}, depois R$ {c['mD'] / max(1, c['comp']):,.2f}")
 print('Matriz (linhas = antes, colunas = depois):', ' '.join(f'{f[:6]:>7}' for f in FAIXAS))

@@ -94,7 +94,7 @@ for L in lig:
         nota += 1
         if rnd.random() >= p:
             continue
-        pg = r + (1 if rnd.random() < .2 else 0)
+        pg = r + rnd.choices([0, 1, 2], [.77, .2, .03])[0]   # 20% pagam no mês seguinte e 3% dois meses depois
         y, m = ym(r); yp, mp = ym(pg)
         dp = date(yp, mp, rnd.randint(1, 28))
         if dp > HOJE:
