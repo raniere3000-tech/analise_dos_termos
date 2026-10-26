@@ -6,7 +6,11 @@ Cria, dentro de PASTA_SAIDA:
   Arrecadação Acumulada/Arrecadacao_AAAA_MM.xlsx   um arquivo por mês de pagamento, de jan/25 a set/26
   Arrecadação Diaria/Arrecadacao_2026_10.csv       mês atual (out/26, até o dia 23), em CSV ; e Windows-1252
   termos_todos_os_termos_2026-10-23.xlsx           abas Resumo (ignorada) e Termos, no layout da exportação real.
-                                                   O mês do termo é a Data de negociação; sem ela, a Data de aplicação
+                                                   O mês do termo é a Data de negociação; sem ela, a Data de aplicação.
+                                                   Termos sem negociação e isentos têm Valor 0 (ficam fora da análise)
+  Faturamento/Faturamento_AAAA_MM.xlsx             uma conta por ligação e mês de vencimento (jan/25 a set/26), com as
+                                                   rubricas VALOR DE AGUA e VALOR DE ESGOTO e outras que o painel ignora.
+                                                   Parte das ligações fica meses sem conta (cortadas)
 """
 import csv
 import os
@@ -59,7 +63,7 @@ def linha_termo(num, t):
             rnd.choice(['Equipe 01', 'Equipe 02', 'Equipe 03', 'Equipe 04']), rnd.choice(TIPOS), 'Concluída', rnd.choice(['', 'Troca de hidrômetro']),
             apl, apl + timedelta(days=2), None if sem_neg else neg, 'SOLICITANTE', rnd.choice(['Residencial', 'Comercial']), 'Ligada',
             rnd.choice(['Negociado', 'Pago', 'Em aberto']), rnd.choice(['SIM', 'NÃO']), rnd.randint(0, 300), rnd.choice(['0-30', '31-60', '61+']),
-            0.0 if isento else round(rnd.uniform(300, 4000), 2), 'SIM' if isento else 'NÃO', 'Decisão administrativa' if isento else '',
+            0.0 if isento or (sem_neg and rnd.random() < .8) else round(rnd.uniform(300, 4000), 2), 'SIM' if isento else 'NÃO', 'Decisão administrativa' if isento else '',
             rnd.choice(['Fiscalização', 'Denúncia']), 'apl.pdf', 'status.pdf', 'fat.pdf']
 
 
@@ -96,10 +100,13 @@ for L in lig:
         if dp > HOJE:
             continue
         valor = round(L['valor'] * rnd.uniform(.9, 1.1), 2)
+        dc = dp + timedelta(days=rnd.randint(0, 2))   # Data Crédito: até 2 dias depois do pagamento (às vezes vira o mês)
+        if dc > HOJE:
+            dc = dp
         sit = 'PAGO'
         if rnd.random() < .01:
             valor, sit = 0.0, 'CANCELADO'
-        por_mes.setdefault(pg, []).append([L['num'], nota, m, y, valor, date(y, m, 10), dp, dp, dp, valor, L['util'], L['zona'],
+        por_mes.setdefault(pg, []).append([L['num'], nota, m, y, valor, date(y, m, 10), dp, dp, dc, valor, L['util'], L['zona'],
                                            'NORMAL', L['contrato'], L['nome'], 'CONTA', sit, 'BANCO 001', rnd.choice(['BOLETO', 'PIX', 'DÉBITO'])])
     if rnd.random() < .02:   # pagamento de dívida antiga (referência de 2023), fora do período
         por_mes.setdefault(am(2025, 6), []).append([L['num'], 1, 5, 2023, 99.9, date(2023, 5, 10), date(2025, 6, 3), date(2025, 6, 3), date(2025, 6, 3),
@@ -142,3 +149,33 @@ for c in ('J', 'K', 'L'):
         cell.number_format = 'dd/mm/yyyy'
 wb.save(os.path.join(pasta, 'termos_todos_os_termos_2026-10-23.xlsx'))
 print(f'{N} ligações, {sum(len(v) for v in por_mes.values())} pagamentos, {len(termos)} linhas de termos em {pasta}')
+
+# faturamento: uma conta por ligação e mês de vencimento (dia 10), de jan/25 a set/26 (meses fechados)
+CAB_FAT = ['N. da Ligacao', 'Situacao Lancamento', 'Nome Cliente', 'Categoria', 'Qtd. Economia Residencial', 'Qtd. Economia Comercial',
+           'Qtd. Economia Industrial', 'Qtd. Economia Publica', 'Qtd. Economia Outros', 'Nome Logradouro', 'Numero da Porta', 'Desc. Complemento',
+           'Nome do Bairro', 'Nome da Localidade', 'Endereco Ligacao', 'Grupo', 'Rota', 'Rubrica', 'Valor Parcela', 'Ocorrencia',
+           'Situacao de Repasse', 'Faturamento', 'Situacao Nota Liberada', 'Referencia de Leitura', 'Data de Vencimento', 'Situacao Ligacao', 'Situacao Conta']
+os.makedirs(os.path.join(pasta, 'Faturamento'), exist_ok=True)
+for L in lig:
+    L['esgoto'] = rnd.random() < .5
+    # parte dos clientes que não pagam fica sem conta (ligação cortada) a partir de algum mês
+    L['corte'] = rnd.randint(A0, A_FIM) if L['perfil'] in ('nunca', 'inadimplente') and rnd.random() < .5 else None
+for a in range(A0, A_FIM):
+    y, m = ym(a)
+    wb = Workbook(); ws = wb.active; ws.title = 'Faturamento'
+    ws.append(CAB_FAT)
+    for L in lig:
+        if L['corte'] is not None and a >= L['corte']:
+            continue
+        base = [L['num'], 'NORMAL', L['nome'], L['util'], 1, 0, 0, 0, 0, 'RUA A', '10', '', 'CENTRO', L['zona'], 'RUA A, 10', 1, 1]
+        fim = [f'{m:02d}/{y}', 'NORMAL', 'NORMAL', 'LIBERADA', f'{ym(a - 1)[1]:02d}/{ym(a - 1)[0]}', date(y, m, 10), 'LIGADA', 'NORMAL']
+        agua = round(L['valor'] * (.5 if L['esgoto'] else 1), 2)
+        ws.append(base + ['VALOR DE AGUA', agua] + fim)
+        if L['esgoto']:
+            ws.append(base + ['VALOR DE ESGOTO', round(L['valor'] - agua, 2)] + fim)
+        if rnd.random() < .05:
+            ws.append(base + ['MULTA POR ATRASO', 5.0] + fim)
+    for cell in ws['Y'][1:]:
+        cell.number_format = 'dd/mm/yyyy'
+    wb.save(os.path.join(pasta, 'Faturamento', f'Faturamento_{y}_{m:02d}.xlsx'))
+print('faturamento gerado')

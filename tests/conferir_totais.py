@@ -1,12 +1,16 @@
 """Recalcula em Python, de forma independente, os números do Resumo do painel (v2, parâmetros padrão).
 
-Uso: python tests/conferir_totais.py PASTA [ULTIMO_MES=AAAA-MM] [modo=pag|ref] [unidade=mat|evento]
+Uso: python tests/conferir_totais.py PASTA [ULTIMO_MES=AAAA-MM] [modo=cred|pag|ref] [unidade=mat|evento] [fat=1|0]
 
 Regras (as mesmas do painel):
 - Termos: arquivo com "termo" no nome, só a aba Termos. Mês do termo = Data de negociação (sem ela, Data de aplicação).
-  Termos da mesma matrícula no mesmo mês são um evento só. Unidade "mat" usa o primeiro termo do ano de cada matrícula.
-- Mês pago: soma do Valor Pago no mês > 0 (pela data do pagamento ou pela referência Mês/Ano).
-- Mês sem dados: mês sem nenhum pagamento na base inteira; fica fora das janelas.
+  Termos com Valor 0 ficam fora. Termos da mesma matrícula no mesmo mês são um evento só. Unidade "mat" usa o
+  primeiro termo do ano de cada matrícula.
+- Mês pago: soma do Valor Pago no mês > 0 (pela Data Crédito, pela Data Pagto. ou pela referência Mês/Ano).
+- Faturamento (tabelas com a coluna Rubrica): conta do mês = VALOR DE AGUA + VALOR DE ESGOTO pela Data de Vencimento.
+  Com fat=1, só os meses com conta > 0 são observados.
+- Mês sem dados: mês sem nenhum pagamento na base inteira (ou sem faturamento, com fat=1); fica fora das janelas.
+- Média mensal: valor arrecadado no período / meses do período com dados.
 - Antes: 12 meses anteriores ao mês do termo. 10 a 12 pagos (proporcional, ≥ 10/12) Adimplente, ≥ 6/12 Flutuante, > 0 Inadimplente, 0 Nunca pagou.
 - Depois: do mês seguinte ao termo até o último mês completo, no máximo 12 meses, e até o mês anterior ao próximo termo
   da mesma matrícula. Menos de 3 meses: acompanhamento insuficiente. ≥ 83,3% Adimplente, ≥ 50% Flutuante, > 0 Inadimplente, 0 Nunca pagou.
@@ -22,8 +26,9 @@ from openpyxl import load_workbook
 
 pasta = sys.argv[1]
 ULT = sys.argv[2] if len(sys.argv) > 2 else None
-MODO = sys.argv[3] if len(sys.argv) > 3 else 'pag'
+MODO = sys.argv[3] if len(sys.argv) > 3 else 'cred'
 UNIDADE = sys.argv[4] if len(sys.argv) > 4 else 'mat'
+USA_FAT = (sys.argv[5] if len(sys.argv) > 5 else '1') == '1'
 MIN, ADIM, FLUT = 3, 83.3, 50.0
 FAIXAS = ['Adimplente', 'Flutuante', 'Inadimplente', 'Nunca pagou', 'Acomp. insuf.']
 
@@ -84,7 +89,7 @@ def tabelas(caminho, so_termos=False):
 def com_cabecalho(linhas):
     for i, l in enumerate(linhas[:30]):
         nomes = [norm(c) for c in l]
-        if 'N_LIGACAO' in nomes or 'MATRICULA' in nomes:
+        if 'N_LIGACAO' in nomes or 'MATRICULA' in nomes or 'N_DA_LIGACAO' in nomes:
             return nomes, linhas[i + 1:]
     return None, []
 
@@ -99,15 +104,16 @@ for a in arquivos:
         if not h:
             continue
         il = h.index('MATRICULA') if 'MATRICULA' in h else h.index('N_LIGACAO')
-        ineg, iapl = h.index('DATA_DE_NEGOCIACAO'), h.index('DATA_DE_APLICACAO')
+        ineg, iapl, ival = h.index('DATA_DE_NEGOCIACAO'), h.index('DATA_DE_APLICACAO'), h.index('VALOR')
         for l in linhas:
             k, d = lig(l[il]), data(l[ineg]) or data(l[iapl])
-            if not k or not d or d[0] // 12 != 2026:
+            if not k or not d or d[0] // 12 != 2026 or not num(l[ival]) > 0:
                 continue
             ev = termos.setdefault(k, {})
             ev[d[0]] = min(ev.get(d[0], d[1]), d[1])
 
 pag, vistos, min_am, max_am, cobertura = {}, set(), 10 ** 9, -1, set()
+fat, vistos_fat, cob_fat = {}, set(), set()
 for a in arquivos:
     if 'termo' in os.path.basename(a).lower():
         continue
@@ -115,15 +121,31 @@ for a in arquivos:
         h, linhas = com_cabecalho(t)
         if not h:
             continue
-        ix = {n: h.index(n) for n in ('N_LIGACAO', 'N_NOTA', 'MES', 'ANO', 'VALOR_PAGO', 'DATA_PAGTO')}
+        if 'RUBRICA' in h:
+            il, ir, iv, ive, irl = (h.index(n) for n in ('N_DA_LIGACAO', 'RUBRICA', 'VALOR_PARCELA', 'DATA_DE_VENCIMENTO', 'REFERENCIA_DE_LEITURA'))
+            for l in linhas:
+                k = lig(l[il])
+                if k not in termos or norm(l[ir]) not in ('VALOR_DE_AGUA', 'VALOR_DE_ESGOTO'):
+                    continue
+                d, v = data(l[ive]), num(l[iv])
+                chave = (k, norm(l[ir]), d[1], str(l[irl]), v)
+                if chave in vistos_fat:
+                    continue
+                vistos_fat.add(chave)
+                cob_fat.add(d[0])
+                fat[(k, d[0])] = fat.get((k, d[0]), 0) + v
+            continue
+        ix = {n: h.index(n) for n in ('N_LIGACAO', 'N_NOTA', 'MES', 'ANO', 'VALOR_PAGO', 'DATA_PAGTO', 'DATA_CREDITO')}
         for l in linhas:
             k = lig(l[ix['N_LIGACAO']])
             if not k:
                 continue
             ref = int(num(l[ix['ANO']])) * 12 + int(num(l[ix['MES']])) - 1
             dp = data(l[ix['DATA_PAGTO']])
+            dc = data(l[ix['DATA_CREDITO']]) or dp
             min_am, max_am = min(min_am, dp[0]), max(max_am, dp[0])
-            cobertura.add(dp[0] if MODO == 'pag' else ref)
+            mes = {'pag': dp[0], 'ref': ref, 'cred': dc[0]}[MODO]
+            cobertura.add(mes)
             if k not in termos:
                 continue
             v = num(l[ix['VALOR_PAGO']])
@@ -132,11 +154,12 @@ for a in arquivos:
                 continue
             vistos.add(chave)
             if v > 0:
-                mes = ref if MODO == 'ref' else dp[0]
                 pag[(k, mes)] = pag.get((k, mes), 0) + v
 
 ult = int(ULT[:4]) * 12 + int(ULT[5:7]) - 1 if ULT else max_am - 1
-ok = lambda m: min_am <= m <= ult and m in cobertura
+USA_FAT = USA_FAT and bool(fat)
+ok = lambda m: min_am <= m <= ult and m in cobertura and (not USA_FAT or m in cob_fat)
+conta = lambda k, m: not USA_FAT or fat.get((k, m), 0) > 0
 
 
 def antes(p, n):
@@ -169,8 +192,9 @@ for k, evs in termos.items():
             fim = min(fim, meses[i + 1] - 1)
         ja = [m for m in range(t - 12, t) if ok(m)]
         jd = [m for m in range(t + 1, fim + 1) if ok(m)]
-        va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]
-        ca, cd = antes(sum(v > 0 for v in va), len(va)), depois(sum(v > 0 for v in vd), len(vd))
+        va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
+        oa, od = [pag.get((k, m), 0) for m in ja if conta(k, m)], [pag.get((k, m), 0) for m in jd if conta(k, m)]   # meses observados
+        ca, cd = antes(sum(v > 0 for v in oa), len(oa)), depois(sum(v > 0 for v in od), len(od))
         if ca < 0:
             c['semhist'] += 1
             continue
@@ -185,8 +209,8 @@ for k, evs in termos.items():
             c['naopag'] += 1; c['recup'] += cd <= 1
 
 rot = lambda a: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][a % 12] + '/' + str(a // 12)[2:]
-sem = [rot(m) for m in range(min_am, ult + 1) if m not in cobertura]
-print(f'Pagamentos de {rot(min_am)} a {rot(max_am)}, análise até {rot(ult)}, modo {MODO}, unidade {UNIDADE}' + (f', meses sem dados: {", ".join(sem)}' if sem else ''))
+sem = [rot(m) for m in range(min_am, ult + 1) if not ok(m)]
+print(f'Pagamentos de {rot(min_am)} a {rot(max_am)}, análise até {rot(ult)}, modo {MODO}, unidade {UNIDADE}, faturamento {"sim" if USA_FAT else "não"}' + (f', meses sem dados: {", ".join(sem)}' if sem else ''))
 print(f"Total: {c['total']} | suficiente: {c['comp']} | melhoraram: {c['melhorou']} | pioraram: {c['piorou']} | permaneceram: {c['igual']} | insuficiente: {c['insuf']} | sem histórico: {c['semhist']}")
 print(f"Recuperados: {c['recup']} de {c['naopag']} | média mensal por cliente comparável: antes R$ {c['mA'] / max(1, c['comp']):,.2f}, depois R$ {c['mD'] / max(1, c['comp']):,.2f}")
 print('Matriz (linhas = antes, colunas = depois):', ' '.join(f'{f[:6]:>7}' for f in FAIXAS))

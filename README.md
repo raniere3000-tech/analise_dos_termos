@@ -8,6 +8,7 @@ Painel em HTML que cruza a base de termos aplicados em 2026 com a base de arreca
 2. Clique em **📁 Conectar pasta** e escolha a pasta com:
    - `Arrecadação Acumulada/`: os meses fechados (a partir de jan/2025);
    - `Arrecadação Diaria/`: o mês atual;
+   - `Faturamento/`: as contas de jan/2025 até o último mês fechado;
    - a base de termos, um arquivo com **"termo" no nome** (por exemplo, `termos_todos_os_termos_2026-10-23.xlsx`).
 3. Aguarde a leitura. A base fica guardada no navegador e abre sozinha nas próximas vezes. Para atualizar, clique em **↻ Atualizar**.
 
@@ -17,7 +18,9 @@ Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou
 
 **Arrecadação:** Nº Ligação, Nº Nota, Mês, Ano, Valor Pago, Data Pagto., Utilização (Sub. Categ.), Zona (Localidade), Cliente, Situação Pagto. As demais colunas da exportação são lidas e ignoradas. O cabeçalho pode estar em qualquer uma das 30 primeiras linhas.
 
-**Termos:** só a aba **Termos** é lida (a aba Resumo é ignorada). Usa Matrícula (o mesmo número do Nº Ligação), Data de negociação (mês do termo; sem ela, a Data de aplicação), Tipo de atividade e Valor. Situação do termo, Faturado, Isento, Frente, Equipe, Categoria e Origem viram filtros. Só entram os termos de 2026; se a matrícula tiver mais de um termo no ano, vale o primeiro.
+**Faturamento:** N. da Ligacao, Rubrica, Valor Parcela, Data de Vencimento e Nome Cliente. Só as rubricas VALOR DE AGUA e VALOR DE ESGOTO entram; a conta do mês é a soma das duas, pelo mês do vencimento.
+
+**Termos:** só a aba **Termos** é lida (a aba Resumo é ignorada). Usa Matrícula (o mesmo número do Nº Ligação), Data de negociação (mês do termo; sem ela, a Data de aplicação), Tipo de atividade e Valor. Situação do termo, Faturado, Isento, Frente, Equipe, Categoria e Origem viram filtros. Só entram os termos de 2026 com Valor maior que zero; se a matrícula tiver mais de um termo no ano, vale o primeiro.
 
 ## Classificação
 
@@ -25,13 +28,14 @@ Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou
 - **Depois do termo:** do mês seguinte ao termo até o último mês completo (no máximo 12 meses), pelo % de meses pagos. Adimplente: 83,3% ou mais; Flutuante: de 50% a 83,3%; Inadimplente: acima de 0% e abaixo de 50%; Nunca pagou: 0%.
 - Com menos de 3 meses depois do termo, o cliente fica em **Acompanhamento insuficiente**, sem contar como melhora, piora ou permanência.
 - O mês do termo fica fora dos dois períodos. Se a matrícula recebeu outro termo, o período depois termina antes dele.
-- Os parâmetros (unidade de análise, mês do pagamento, último mês, limites) ficam em **Ajustar parâmetros**.
+- **Mês pago:** houve Valor Pago com Data Crédito no mês. **Mês observado:** a matrícula tinha conta a pagar (vencimento) no mês; mês sem conta não conta como "não pagou".
+- Os parâmetros (unidade de análise, mês do pagamento, meses observados, último mês, limites) ficam em **Ajustar parâmetros**.
 
-**Limitação:** sem base de faturamento, um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar.
+Sem a pasta Faturamento, todos os meses são observados, e um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar.
 
 ## Versão anterior
 
-A versão 1.1 continua disponível em `versoes/v1.1/index.html` e no branch `versao-1.1`.
+As versões 1.1 e 2.0 continuam disponíveis em `versoes/` e nos branches `versao-1.1` e `versao-2.0`.
 
 ## Privacidade
 

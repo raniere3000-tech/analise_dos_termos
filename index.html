@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Termos e adimplência 2026</title>
+<!-- ícone da aba: lupa com gota, em SVG dentro do próprio arquivo -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314375e'/%3E%3Ccircle cx='28' cy='28' r='16' fill='none' stroke='%23fff' stroke-width='5.5'/%3E%3Cpath d='M28 16.5 34.2 25 A7.6 7.6 0 1 1 21.8 25 Z' fill='%235ee7c8'/%3E%3Cpath d='M40 40 51 51' stroke='%23fff' stroke-width='7' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -275,6 +277,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
 .cons td.sem{background:var(--laranja-tint);color:var(--laranja-texto)}
 .cons td.fora{color:#b6c2ce}
 .cons td.sd{background:var(--insuf-tint);color:var(--insuf-texto)}
+.cons td.nc{color:var(--insuf-texto);font-style:italic}
 .cons td.mt{box-shadow:inset 2px 0 0 var(--marinho);background:var(--zebra)}
 .bloco.largo{min-width:1240px}
 @media (max-width:640px){
@@ -294,7 +297,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.0</span>
+      <span class="versao" id="versao" title="Versão do painel">v2.1</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -356,8 +359,15 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
           </label>
           <label class="field">Mês do pagamento
             <select id="pModo">
-              <option value="pag">Data do pagamento (recebido no mês)</option>
+              <option value="cred">Data de crédito</option>
+              <option value="pag">Data do pagamento</option>
               <option value="ref">Referência da fatura (Mês/Ano)</option>
+            </select>
+          </label>
+          <label class="field">Meses observados
+            <select id="pFat">
+              <option value="1">Só meses com conta a pagar (faturamento)</option>
+              <option value="0">Todos os meses</option>
             </select>
           </label>
           <label class="field">Último mês completo <select id="pUltimo"></select></label>
@@ -495,7 +505,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
         </label>
         <button class="btn-just" id="btnExport" type="button">⬇ Exportar CSV</button>
       </div>
-      <p class="keyline"><i style="background:var(--laranja-tint)"></i>mês sem pagamento dentro do período<i style="box-shadow:inset 2px 0 0 var(--marinho);background:var(--zebra)"></i>mês do termo (fora dos dois períodos)<i style="background:var(--insuf-tint)"></i>mês sem dados na base<i style="background:#fff"></i>fora do período, em cinza claro</p>
+      <p class="keyline"><i style="background:var(--laranja-tint)"></i>mês sem pagamento dentro do período<i style="box-shadow:inset 2px 0 0 var(--marinho);background:var(--zebra)"></i>mês do termo (fora dos dois períodos)<i style="background:var(--insuf-tint)"></i>mês sem dados na base (s/d)<i style="background:#fff"></i>s/c: sem conta a pagar no mês<i style="background:#fff"></i>fora do período, em cinza claro</p>
       <p class="count" id="cCount"></p>
       <div class="cons-wrap cons" id="tblCons"></div>
       <div class="pager">
@@ -512,10 +522,10 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
 // Nomes de coluna comparados sem acento, maiúsculas e pontuação ("Nº Ligação" vira N_LIGACAO, "Data Pagto." vira DATA_PAGTO)
 const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 const str = v => v == null ? '' : String(v).trim();
-const LIG = ['N_LIGACAO', 'NO_LIGACAO', 'NUM_LIGACAO', 'NUMERO_LIGACAO', 'NUMERO_DA_LIGACAO', 'LIGACAO', 'MATRICULA', 'N_MATRICULA'];
+const LIG = ['N_LIGACAO', 'NO_LIGACAO', 'N_DA_LIGACAO', 'NUM_LIGACAO', 'NUMERO_LIGACAO', 'NUMERO_DA_LIGACAO', 'LIGACAO', 'MATRICULA', 'N_MATRICULA'];
 const ALIAS_ARR = {
   N_NOTA: 'nota', NO_NOTA: 'nota', NOTA: 'nota', MES: 'mes', ANO: 'ano', REFERENCIA: 'ref', VALOR_PAGO: 'valor',
-  DATA_PAGTO: 'dpag', DATA_PAGAMENTO: 'dpag', DT_PAGTO: 'dpag',
+  DATA_PAGTO: 'dpag', DATA_PAGAMENTO: 'dpag', DT_PAGTO: 'dpag', DATA_CREDITO: 'dcred', DT_CREDITO: 'dcred',
   UTILIZACAO_SUB_CATEG: 'util', UTILIZACAO: 'util', SUB_CATEGORIA: 'util', ZONA_LOCALIDADE: 'zona', ZONA: 'zona', LOCALIDADE: 'zona', CIDADE: 'zona',
   CLIENTE: 'nome', NOM_CLIENTE: 'nome', NOME: 'nome', NOME_CLIENTE: 'nome', SITUACAO_PAGTO: 'sit', SITUACAO_PAGAMENTO: 'sit'
 };
@@ -540,6 +550,11 @@ const EXTRAS = [
   { k: 'ori', nome: 'Origem', col: ['ORIGEM'] }
 ];
 EXTRAS.forEach(x => x.col.forEach(c => { ALIAS_TERMO[c] = 'x_' + x.k; }));
+// base de faturamento (subpasta Faturamento): uma linha por rubrica de cada conta
+const ALIAS_FAT = { RUBRICA: 'rub', VALOR_PARCELA: 'valor', DATA_DE_VENCIMENTO: 'venc', DATA_VENCIMENTO: 'venc', REFERENCIA_DE_LEITURA: 'refl', SITUACAO_CONTA: 'sitc', NOME_CLIENTE: 'nome' };
+LIG.forEach(k => { ALIAS_FAT[k] = 'mat'; });
+// só estas rubricas formam a conta a pagar do mês (definido pelo usuário): água + esgoto
+const RUBRICAS = new Set(['VALOR_DE_AGUA', 'VALOR_DE_ESGOTO']);
 function toNum(v){
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return isFinite(v) ? v : 0;
@@ -779,26 +794,43 @@ async function percorre(file, onTabela, onProgress, escolhe){
   if (escolhe) abas = escolhe(abas);
   for (const sh of abas){
     const t = onTabela(sh.name);
-    await streamBlocks(file, sh.entry, '</row>', blk => t.linha(parseCells(blk, sst)), onProgress);
+    await streamBlocks(file, sh.entry, '</row>', blk => t.pre && !t.pre(blk, sst) ? undefined : t.linha(parseCells(blk, sst)), onProgress);
     t.fim();
   }
 }
-// tratador de uma tabela: acha o cabeçalho (linha com o número da ligação, nas primeiras 30) e repassa as linhas
-function tabela(alias, onLinha, onFim){
+// tratador de uma tabela: acha o cabeçalho (linha com o número da ligação, nas primeiras 30) e repassa as linhas.
+// alias pode ser uma função que escolhe os nomes pelo cabeçalho (arrecadação ou faturamento)
+function tabela(alias, onLinha, onFim, onCabecalho){
   let h = null, vistas = 0;
-  return {
+  const t = {
     linha(c){
       if (h) return onLinha(c, h);
       vistas++;
       const nomes = c.map(norm);
       if (nomes.some(n => LIG.includes(n))){
         h = { nomes, orig: c.map(str) };
-        nomes.forEach((n, i) => { const k = alias[n]; if (k && h[k] === undefined) h[k] = i; });
+        const al = typeof alias === 'function' ? alias(h) : alias;
+        nomes.forEach((n, i) => { const k = al[n]; if (k && h[k] === undefined) h[k] = i; });
+        if (onCabecalho) onCabecalho(h, t);
         return;
       }
       if (vistas > 30) return false;
     },
     fim(){ onFim(h); }
+  };
+  return t;
+}
+const colLetra = i => { let s = ''; i++; while (i > 0){ const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
+// pré-filtro de linhas do .xlsx: lê só a célula da ligação e descarta a linha se a ligação não tem termo
+function preFiltro(col, aceita){
+  const re = new RegExp('<c r="' + colLetra(col) + '\\d+"([^>]*?)(?:/>|>([\\s\\S]*?)</c>)');
+  return (blk, sst) => {
+    const m = re.exec(blk); if (!m || m[2] === undefined) return false;
+    const tm = /\bt="([^"]+)"/.exec(m[1]), t = tm ? tm[1] : 'n';
+    let v;
+    if (t === 'inlineStr') v = texts(m[2]);
+    else { const vm = /<v>([\s\S]*?)<\/v>/.exec(m[2]); if (!vm) return false; v = t === 's' ? sst[+vm[1]] : t === 'n' ? +vm[1] : dec(vm[1]); }
+    return aceita(ligKey(v));
   };
 }
 
@@ -808,7 +840,7 @@ const ANO_TERMO = 2026;
 class Termos {
   constructor(){
     this.m = new Map();
-    this.st = { linhas: 0, foraAno: 0, semData: 0, semNeg: 0, mesmoMes: 0, arquivos: [], semColunaData: [], colData: '' };
+    this.st = { linhas: 0, foraAno: 0, semData: 0, semNeg: 0, mesmoMes: 0, valorZero: 0, arquivos: [], semColunaData: [], colData: '' };
   }
   // aba Termos, quando existir; senão todas, menos a de resumo
   static abas(lista){
@@ -819,10 +851,10 @@ class Termos {
     const mk = ligKey(c[h.mat]); if (!mk) return;
     this.st.linhas++;
     // mês do termo: Data de negociação (definido pelo usuário). Sem negociação, vale a Data de aplicação
-    let di = h.neg !== undefined ? dataInfo(c[h.neg]) : null;
+    let di = h.neg !== undefined ? dataInfo(c[h.neg]) : null, usouApl = false;
     if (!di && h.neg !== undefined && (h.apl !== undefined || h.data !== undefined)){
       di = dataInfo(c[h.apl !== undefined ? h.apl : h.data]);
-      if (di) this.st.semNeg++;
+      usouApl = !!di;
     }
     if (!di && h.neg === undefined && h.data !== undefined) di = dataInfo(c[h.data]);
     if (!di && h.neg === undefined && h.apl !== undefined) di = dataInfo(c[h.apl]);
@@ -830,6 +862,9 @@ class Termos {
     if (!di && h.mes !== undefined){ const a = mesAno(c[h.mes], c[h.ano]); if (a >= 0) di = { am: a, txt: pad(a % 12 + 1) + '/' + Math.floor(a / 12) }; }
     if (!di){ this.st.semData++; return; }
     if (Math.floor(di.am / 12) !== ANO_TERMO){ this.st.foraAno++; return; }
+    // termo com Valor = 0 (isento ou cancelado) fica fora da análise (definido pelo usuário)
+    if (h.valor !== undefined && !(toNum(c[h.valor]) > 0)){ this.st.valorZero++; return; }
+    if (usouApl) this.st.semNeg++;
     const v = { am: di.am, txt: di.txt, tipo: h.tipo !== undefined ? str(c[h.tipo]) : '', valor: h.valor !== undefined ? toNum(c[h.valor]) : 0,
       cid: h.cid !== undefined ? str(c[h.cid]) : '', zona: h.zona !== undefined ? str(c[h.zona]) : '', util: h.util !== undefined ? str(c[h.util]) : '',
       nome: h.nome !== undefined ? str(c[h.nome]) : '', qtd: 1, x: EXTRAS.map(x => h['x_' + x.k] !== undefined ? str(c[h['x_' + x.k]]) : '') };
@@ -863,16 +898,19 @@ class Arrecadacao {
     this.nome = new Array(n).fill(''); this.zona = new Int32Array(n).fill(-1); this.util = new Int32Array(n).fill(-1); this.ult = new Int32Array(n).fill(-1);
     this.d = { zona: new Dict(), util: new Dict(), tipo: new Dict() };
     EXTRAS.forEach(x => { this.d[x.k] = new Dict(); });
-    this.rMat = new G(Int32Array); this.rRef = new G(Int32Array); this.rPag = new G(Int32Array); this.rVal = new G(Float64Array);
+    this.rMat = new G(Int32Array); this.rRef = new G(Int32Array); this.rPag = new G(Int32Array); this.rCred = new G(Int32Array); this.rVal = new G(Float64Array);
     this.vistos = new Set();
     this.minPag = Infinity; this.maxPag = -Infinity; this.minRef = Infinity; this.maxRef = -Infinity; this.ultData = '';
-    this.st = { linhas: 0, linhasTermo: 0, repetidas: 0, valorZero: 0, semMes: 0, semLig: 0, sit: new Map(), porMes: new Map(), porRef: new Map(), abas: [], ignoradas: [] };
+    this.st = { linhas: 0, linhasTermo: 0, repetidas: 0, valorZero: 0, semMes: 0, semLig: 0, semCred: 0, sit: new Map(), porMes: new Map(), porRef: new Map(), porCred: new Map(), abas: [], ignoradas: [] };
   }
   add(c, h){
     const mk = ligKey(c[h.mat]); if (!mk){ this.st.semLig++; return; }
     const ref = h.mes !== undefined ? mesAno(c[h.mes], c[h.ano]) : h.ref !== undefined ? (dataInfo(c[h.ref]) || { am: -1 }).am : -1;
     const dp = h.dpag !== undefined ? dataInfo(c[h.dpag]) : null;
     const pag = dp ? dp.am : -1;
+    // Data Crédito: mês em que o pagamento entrou (padrão do painel). Sem ela, vale a Data Pagto.
+    const dc = h.dcred !== undefined ? dataInfo(c[h.dcred]) : null;
+    const cred = dc ? dc.am : pag;
     if (ref < 0 && pag < 0){ this.st.semMes++; return; }
     this.st.linhas++;
     const s = h.sit !== undefined ? str(c[h.sit]) : '';
@@ -883,6 +921,7 @@ class Arrecadacao {
       else if (pag === this.maxPag && ordData(dp.txt) > ordData(this.ultData)) this.ultData = dp.txt;
       this.st.porMes.set(pag, (this.st.porMes.get(pag) || 0) + 1);
     }
+    if (cred >= 0) this.st.porCred.set(cred, (this.st.porCred.get(cred) || 0) + 1);
     if (ref >= 0){ if (ref < this.minRef) this.minRef = ref; if (ref > this.maxRef) this.maxRef = ref; this.st.porRef.set(ref, (this.st.porRef.get(ref) || 0) + 1); }
     const mi = this.idx.get(mk); if (mi === undefined) return;
     const valor = toNum(c[h.valor]);
@@ -899,14 +938,15 @@ class Arrecadacao {
       if (h.zona !== undefined) this.zona[mi] = this.d.zona.id(str(c[h.zona]));
       if (h.util !== undefined) this.util[mi] = this.d.util.id(str(c[h.util]));
     }
-    this.rMat.push(mi); this.rRef.push(ref); this.rPag.push(pag); this.rVal.push(valor);
+    if (h.dcred !== undefined && !dc) this.st.semCred++;
+    this.rMat.push(mi); this.rRef.push(ref); this.rPag.push(pag); this.rCred.push(cred); this.rVal.push(valor);
   }
   build(termos){
     // eixo de meses: o período dos pagamentos (Data Pagto.); sem essa coluna, o das referências
     const temPag = this.maxPag >= 0;
     const am0 = temPag ? this.minPag : this.minRef, am1 = temPag ? this.maxPag : this.maxRef;
     const nR = am1 - am0 + 1, nM = this.mats.length;
-    const valRef = new Float64Array(nM * nR), valPag = new Float64Array(nM * nR), temArr = new Uint8Array(nM);
+    const valRef = new Float64Array(nM * nR), valPag = new Float64Array(nM * nR), valCred = new Float64Array(nM * nR), temArr = new Uint8Array(nM);
     let refFora = 0;
     for (let i = 0, n = this.rMat.n; i < n; i++){
       const m = this.rMat.a[i], v = this.rVal.a[i], rf = this.rRef.a[i], pg = this.rPag.a[i];
@@ -914,6 +954,8 @@ class Arrecadacao {
       if (rf >= am0 && rf <= am1) valRef[m * nR + rf - am0] += v; else refFora++;
       const p = pg >= 0 ? pg : rf;
       if (p >= am0 && p <= am1) valPag[m * nR + p - am0] += v;
+      const cr = this.rCred.a[i] >= 0 ? this.rCred.a[i] : p;
+      if (cr >= am0 && cr <= am1) valCred[m * nR + cr - am0] += v;
     }
     // por matrícula: cadastro da arrecadação (pagamento mais recente); sem pagamento, vem do primeiro termo
     const zona = new Uint16Array(nM), util = new Uint16Array(nM), nomes = [];
@@ -940,14 +982,57 @@ class Arrecadacao {
     });
     const st = this.st;
     return {
-      am0, nR, temPag, ultData: this.ultData, mats: this.mats, nomes, zona, util, temArr, valRef, valPag,
+      am0, nR, temPag, ultData: this.ultData, mats: this.mats, nomes, zona, util, temArr, valRef, valPag, valCred,
       eMat, eAm, eProx, eSeq, eNum, eQtd, eValor, eTipo, eCid, eData,
       extra, extraNomes: EXTRAS.map(x => ({ k: x.k, nome: x.nome, lista: this.d[x.k].list })),
       dict: { zona: this.d.zona.list, util: this.d.util.list, tipo: this.d.tipo.list, cid: dCid.list },
       stats: { linhas: st.linhas, linhasTermo: st.linhasTermo, repetidas: st.repetidas, valorZero: st.valorZero, semMes: st.semMes, semLig: st.semLig, refFora,
         sit: [...st.sit.entries()].sort((a, b) => b[1] - a[1]), porMes: [...st.porMes.entries()].sort((a, b) => a[0] - b[0]),
-        porRef: [...st.porRef.entries()].sort((a, b) => a[0] - b[0]), abas: st.abas, ignoradas: st.ignoradas }
+        porRef: [...st.porRef.entries()].sort((a, b) => a[0] - b[0]), porCred: [...st.porCred.entries()].sort((a, b) => a[0] - b[0]), semCred: st.semCred,
+        abas: st.abas, ignoradas: st.ignoradas }
     };
+  }
+}
+
+/* ---------- base de faturamento: contas a pagar das matrículas com termo ----------
+   Mês da conta = mês da Data de Vencimento (definido pelo usuário). Valor da conta = soma das rubricas VALOR DE AGUA e
+   VALOR DE ESGOTO (quem paga esgoto tem as duas linhas). Todas as situações de conta entram: os meses analisados já
+   estão fechados. */
+class Faturamento {
+  constructor(idx){
+    this.idx = idx; this.mi = new G(Int32Array); this.am = new G(Int32Array); this.val = new G(Float64Array);
+    this.vistos = new Set(); this.nome = new Map();
+    this.st = { linhas: 0, rubOutras: 0, semVenc: 0, repetidas: 0, porMes: new Map(), sitc: new Map(), abas: [] };
+  }
+  add(c, h){
+    const mi = this.idx.get(ligKey(c[h.mat])); if (mi === undefined) return;
+    if (h.nome !== undefined && !this.nome.has(mi) && str(c[h.nome])) this.nome.set(mi, str(c[h.nome]));
+    if (!RUBRICAS.has(norm(c[h.rub]))){ this.st.rubOutras++; return; }
+    const v = h.venc !== undefined ? dataInfo(c[h.venc]) : null;
+    if (!v){ this.st.semVenc++; return; }
+    const valor = toNum(c[h.valor]);
+    const chave = mi + '|' + norm(c[h.rub]) + '|' + v.txt + '|' + (h.refl !== undefined ? str(c[h.refl]) : '') + '|' + valor;
+    if (this.vistos.has(chave)){ this.st.repetidas++; return; }
+    this.vistos.add(chave);
+    this.st.linhas++;
+    this.st.porMes.set(v.am, (this.st.porMes.get(v.am) || 0) + 1);
+    const s = h.sitc !== undefined ? str(c[h.sitc]) : '';
+    this.st.sitc.set(s, (this.st.sitc.get(s) || 0) + 1);
+    this.mi.push(mi); this.am.push(v.am); this.val.push(valor);
+  }
+  build(d){
+    const nR = d.nR, fat = new Float64Array(d.mats.length * nR);
+    let fora = 0;
+    for (let i = 0; i < this.mi.n; i++){
+      const r = this.am.a[i] - d.am0;
+      if (r < 0 || r >= nR){ fora++; continue; }
+      fat[this.mi.a[i] * nR + r] += this.val.a[i];
+    }
+    d.fat = fat; d.temFat = this.st.linhas > 0;
+    // cliente sem nenhum pagamento na arrecadação: o nome vem do faturamento
+    for (const [mi, nome] of this.nome) if (!d.nomes[mi]) d.nomes[mi] = nome;
+    d.stats.fat = { linhas: this.st.linhas, rubOutras: this.st.rubOutras, semVenc: this.st.semVenc, repetidas: this.st.repetidas, fora, abas: this.st.abas,
+      porMes: [...this.st.porMes.entries()].sort((a, b) => a[0] - b[0]), sitc: [...this.st.sitc.entries()].sort((a, b) => b[1] - a[1]) };
   }
 }
 
@@ -972,29 +1057,36 @@ async function processFiles(files){
       p => progress('Base de termos: ' + file.name, 'Lendo os termos…', p), Termos.abas);
   }
   if (!T.m.size) throw new Error(T.st.linhas ? `A base de termos tem ${T.st.linhas} linhas, mas nenhuma com data de ${ANO_TERMO}. Confira a coluna com a data do termo.` : 'A base de termos não tem a coluna com o número da ligação (Nº Ligação ou Matrícula).');
-  const A = new Arrecadacao(T.m);
+  const A = new Arrecadacao(T.m), F = new Faturamento(A.idx);
+  // arrecadação e faturamento são reconhecidos pelo cabeçalho: a tabela com a coluna Rubrica é faturamento
   for (let fi = 0; fi < fA.length; fi++){
     const file = fA[fi];
-    const label = `Arrecadação ${fi + 1} de ${fA.length}: ${nomeArq(file)}`;
+    const label = `Arquivo ${fi + 1} de ${fA.length}: ${nomeArq(file)}`;
     progress(label, 'Abrindo o arquivo…', 0, true);
     await percorre(file, aba => {
-      const antes = A.st.linhas;
-      return tabela(ALIAS_ARR, (c, h) => A.add(c, h), h => {
-        if (h && h.valor !== undefined) A.st.abas.push({ arquivo: nomeArq(file), aba, linhas: A.st.linhas - antes });
-        else A.st.ignoradas.push(nomeArq(file) + (aba !== file.name ? ' / ' + aba : ''));
-      });
-    }, (p, msg) => progress(label, msg || `${A.st.linhas.toLocaleString('pt-BR')} pagamentos lidos no total`, p));
+      const antesA = A.st.linhas, antesF = F.st.linhas;
+      return tabela(h => h.nomes.includes('RUBRICA') ? ALIAS_FAT : ALIAS_ARR,
+        (c, h) => h.rub !== undefined ? F.add(c, h) : A.add(c, h),
+        h => {
+          const nome = nomeArq(file) + (aba !== file.name ? ' / ' + aba : '');
+          if (h && h.rub !== undefined) F.st.abas.push({ arquivo: nome, linhas: F.st.linhas - antesF });
+          else if (h && h.valor !== undefined) A.st.abas.push({ arquivo: nomeArq(file), aba, linhas: A.st.linhas - antesA });
+          else A.st.ignoradas.push(nome);
+        },
+        (h, t) => { if (h.rub !== undefined) t.pre = preFiltro(h.mat, k => A.idx.has(k)); });
+    }, (p, msg) => progress(label, msg || `${A.st.linhas.toLocaleString('pt-BR')} pagamentos e ${F.st.linhas.toLocaleString('pt-BR')} linhas de faturamento lidas`, p));
   }
   if (!A.st.linhas) throw new Error('Nenhum pagamento encontrado. Confira se os arquivos de arrecadação têm as colunas Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.');
   progress('Montando o consolidado', 'Organizando os pagamentos por cliente e mês…', 1, true);
   const d = A.build(T.m);
-  d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, semNeg: T.st.semNeg, mesmoMes: T.st.mesmoMes, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData, colData: T.st.colData };
+  F.build(d);
+  d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, semNeg: T.st.semNeg, mesmoMes: T.st.mesmoMes, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData, colData: T.st.colData, valorZero: T.st.valorZero };
   return d;
 }
 self.onmessage = async ev => {
   try {
     const d = await processFiles(ev.data.files);
-    const tr = [d.zona, d.util, d.temArr, d.valRef, d.valPag, d.eMat, d.eAm, d.eProx, d.eSeq, d.eNum, d.eQtd, d.eValor, d.eTipo, d.eCid, ...Object.values(d.extra)].map(a => a.buffer);
+    const tr = [d.zona, d.util, d.temArr, d.valRef, d.valPag, d.valCred, d.fat, d.eMat, d.eAm, d.eProx, d.eSeq, d.eNum, d.eQtd, d.eValor, d.eTipo, d.eCid, ...Object.values(d.extra)].map(a => a.buffer);
     self.postMessage({ type: 'done', data: d }, tr);
   } catch (err){
     self.postMessage({ type: 'error', message: err && err.message ? err.message : String(err) });
@@ -1007,7 +1099,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.0';
+const VERSAO_SITE = '2.1';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1039,13 +1131,13 @@ let D = null;
 const st = { sel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
 
 /* ---------- parâmetros (guardados neste navegador) ---------- */
-const paramPadrao = () => ({ unidade: 'mat', modo: 'pag', ultimo: null, min: 3, adim: 83.3, flut: 50 });
+const paramPadrao = () => ({ unidade: 'mat', modo: 'cred', fat: true, ultimo: null, min: 3, adim: 83.3, flut: 50 });
 let P = paramPadrao();
 try {
-  const s = JSON.parse(localStorage.getItem('painel-termos-param-v2') || 'null');
+  const s = JSON.parse(localStorage.getItem('painel-termos-param-v3') || 'null');
   if (s && typeof s === 'object') P = Object.assign(paramPadrao(), s);
 } catch (_) {}
-const salvaParam = () => { try { localStorage.setItem('painel-termos-param-v2', JSON.stringify(P)); } catch (_) {} };
+const salvaParam = () => { try { localStorage.setItem('painel-termos-param-v3', JSON.stringify(P)); } catch (_) {} };
 
 // Antes do termo (regra fixa definida pelo usuário): 12 meses, Adimplente com 10 a 12 meses pagos (no máximo 2 sem pagar),
 // Flutuante com 6 a 9, Inadimplente com 1 a 5 e Nunca pagou com nenhum. Se faltarem meses com dados na base, a mesma
@@ -1172,39 +1264,57 @@ function setData(d){
    mesma matrícula, para não misturar o efeito de dois termos.
    Antes: os 12 meses anteriores ao mês do termo. Depois: do mês seguinte ao termo até o último mês completo (no máximo
    12 meses). O mês do termo fica fora dos dois períodos.
-   Mês pago: soma do Valor Pago no mês maior que zero. Mês sem nenhum pagamento de nenhum cliente na base inteira é tratado
-   como mês sem dados: fica fora das contas, em vez de virar "não pagou". */
+   Mês pago: soma do Valor Pago no mês maior que zero, pela Data de crédito (padrão, definido pelo usuário).
+   Mês observado: com a base de faturamento, só os meses em que a matrícula tinha conta a pagar (água + esgoto com
+   vencimento no mês); mês sem conta não conta como "não pagou". Sem faturamento, todos os meses.
+   Mês sem nenhum dado na base inteira (arrecadação, ou faturamento quando ele é usado) fica fora das contas. */
+const usaFat = () => !!(P.fat && D.temFat);
 function derive(){
-  const nR = D.nR, V = P.modo === 'pag' ? D.valPag : D.valRef, L = idxUltimo();
-  const cobertura = new Map(P.modo === 'pag' ? D.stats.porMes : D.stats.porRef);
+  const nR = D.nR, L = idxUltimo(), F = usaFat() ? D.fat : null;
+  const V = P.modo === 'pag' ? D.valPag : P.modo === 'ref' ? D.valRef : (D.valCred || D.valPag);
+  const cobertura = new Map(P.modo === 'pag' ? D.stats.porMes : P.modo === 'ref' ? D.stats.porRef : (D.stats.porCred || D.stats.porMes));
+  const cobFat = new Map(F ? D.stats.fat.porMes : []);
   D.L = L; D.V = V;
   D.semDados = new Uint8Array(nR);
-  for (let r = 0; r < nR; r++) if (!cobertura.get(D.am0 + r)) D.semDados[r] = 1;
+  for (let r = 0; r < nR; r++) if (!cobertura.get(D.am0 + r) || (F && !cobFat.get(D.am0 + r))) D.semDados[r] = 1;
   const ev = []; for (let e = 0; e < D.eMat.length; e++) if (P.unidade === 'evento' || D.eSeq[e] === 1) ev.push(e);
   const n = ev.length;
   D.U = Int32Array.from(ev); D.n = n;
   D.uMat = new Int32Array(n); D.tI = new Int16Array(n); D.fimD = new Int16Array(n); D.corte = new Uint8Array(n);
   D.nA = new Uint8Array(n); D.pA = new Uint8Array(n); D.nD = new Uint8Array(n); D.pD = new Uint8Array(n); D.semA = new Uint8Array(n);
+  D.scA = new Uint8Array(n); D.scD = new Uint8Array(n);   // meses sem conta a pagar, antes e depois
+  D.mesesA = new Uint8Array(n); D.mesesD = new Uint8Array(n);   // meses do período com dados (base da média mensal)
   D.sA = new Float64Array(n); D.sD = new Float64Array(n); D.mA = new Float64Array(n); D.mD = new Float64Array(n);
   D.cA = new Int8Array(n); D.cD = new Int8Array(n); D.res = new Int8Array(n);
   for (let u = 0; u < n; u++){
     const e = ev[u], m = D.eMat[e], b = m * nR, t = D.eAm[e] - D.am0;
     D.uMat[u] = m; D.tI[u] = t;
-    let nA = 0, pA = 0, sA = 0, semA = 0;
+    let nA = 0, pA = 0, sA = 0, semA = 0, scA = 0, scD = 0;
     for (let r = t - 12; r < t; r++){
       if (r < 0 || r > L || D.semDados[r]){ semA++; continue; }
-      nA++; const v = V[b + r]; if (v > 0){ pA++; sA += v; }
+      const v = V[b + r];
+      if (v > 0) sA += v;   // o valor arrecadado conta mesmo em mês sem conta (pagamento de atrasado)
+      if (F && !(F[b + r] > 0)){ scA++; continue; }
+      nA++; if (v > 0) pA++;
     }
     let fim = Math.min(L, t + 12);
     if (D.eProx[e] >= 0){ const px = D.eProx[e] - D.am0 - 1; if (px < fim){ fim = px; D.corte[u] = 1; } }
     D.fimD[u] = fim;
     let nD = 0, pD = 0, sD = 0;
+    let mesesA = 0, mesesD = 0;
+    for (let r = t - 12; r < t; r++) if (r >= 0 && r <= L && !D.semDados[r]) mesesA++;
     for (let r = Math.max(0, t + 1); r <= fim; r++){
       if (D.semDados[r]) continue;
-      nD++; const v = V[b + r]; if (v > 0){ pD++; sD += v; }
+      mesesD++;
+      const v = V[b + r];
+      if (v > 0) sD += v;
+      if (F && !(F[b + r] > 0)){ scD++; continue; }
+      nD++; if (v > 0) pD++;
     }
+    D.scA[u] = scA; D.scD[u] = scD; D.mesesA[u] = mesesA; D.mesesD[u] = mesesD;
     D.nA[u] = nA; D.pA[u] = pA; D.sA[u] = sA; D.semA[u] = semA; D.nD[u] = nD; D.pD[u] = pD; D.sD[u] = sD;
-    D.mA[u] = nA ? sA / nA : 0; D.mD[u] = nD ? sD / nD : 0;
+    // média mensal: valor arrecadado no período dividido pelos meses do período com dados
+    D.mA[u] = mesesA ? sA / mesesA : 0; D.mD[u] = mesesD ? sD / mesesD : 0;
     const cA = classeAntes(pA, nA), cD = classeDepois(pD, nD);
     D.cA[u] = cA; D.cD[u] = cD;
     D.res[u] = cA < 0 ? -1 : cD === 4 ? 3 : cD > cA ? 1 : cD < cA ? 2 : 0;
@@ -1298,7 +1408,7 @@ function agrega(k, chave, nK){
     if (r === 3){ o.insuf[g]++; continue; }
     o.comp[g]++;
     if (r === 2) o.melhorou[g]++; else if (r === 1) o.piorou[g]++; else o.igual[g]++;
-    o.mA[g] += D.mA[u]; o.mD[g] += D.mD[u]; o.nA[g] += D.nA[u]; o.nD[g] += D.nD[u];
+    o.mA[g] += D.mA[u]; o.mD[g] += D.mD[u]; o.nA[g] += D.mesesA[u]; o.nD[g] += D.mesesD[u];
     const cA = D.cA[u], cD = D.cD[u];
     if (cA === 0){ o.adimA[g]++; if (cD > 0) o.adimPiorou[g]++; if (cD >= 2) o.adimInad[g]++; }
     if (cA >= 2){ o.naoPag[g]++; if (cD <= 1) o.recup[g]++; if (D.pD[u] > 0) o.algumPag[g]++; }
@@ -1423,6 +1533,8 @@ const liga = (sel, chave, fn) => document.querySelectorAll(`[${sel}]`).forEach(b
 /* ---------- parâmetros na tela ---------- */
 function montaParam(){
   $('#pUnidade').value = P.unidade; $('#pModo').value = P.modo; $('#pMin').value = P.min;
+  $('#pFat').value = P.fat ? '1' : '0'; $('#pFat').disabled = !D.temFat;
+  $('#pFat').title = D.temFat ? '' : 'A pasta não tem base de faturamento';
   $('#pAdim').value = String(P.adim); $('#pFlut').value = String(P.flut);
   const L = idxUltimo(), pad = ultimoPadrao();
   $('#pUltimo').innerHTML = Array.from({ length: D.nR }, (_, r) => D.am0 + r).reverse()
@@ -1431,6 +1543,7 @@ function montaParam(){
 function mudaParam(){ salvaParam(); derive(); refresh(); }
 $('#pUnidade').onchange = e => { P.unidade = e.target.value; mudaParam(); };
 $('#pModo').onchange = e => { P.modo = e.target.value; mudaParam(); };
+$('#pFat').onchange = e => { P.fat = e.target.value === '1'; mudaParam(); };
 $('#pUltimo').onchange = e => { const a = +e.target.value; P.ultimo = a === ultimoPadrao() ? null : a; mudaParam(); };
 $('#pMin').onchange = e => { P.min = Math.max(1, Math.min(12, Math.round(+e.target.value) || 3)); e.target.value = P.min; mudaParam(); };
 $('#pAdim').onchange = e => { P.adim = Math.max(1, Math.min(100, +String(e.target.value).replace(',', '.') || 83.3)); if (P.flut > P.adim) P.flut = P.adim; montaParam(); mudaParam(); };
@@ -1472,10 +1585,13 @@ function renderRegra(){
   $('#regraTxt').innerHTML = `<b>Antes:</b> os 12 meses anteriores ao mês do termo. Adimplente: pagou de 10 a 12 meses; Flutuante: de 6 a 9; Inadimplente: de 1 a 5; Nunca pagou: nenhum. ` +
     `<b>Depois:</b> do mês seguinte ao termo até ${ult} (no máximo 12 meses; o mês do termo fica fora dos dois períodos), pelo % de meses pagos: Adimplente a partir de ${nf1.format(P.adim)}%, Flutuante a partir de ${nf1.format(P.flut)}%, Inadimplente acima de 0% e Nunca pagou com 0%. ` +
     `Com menos de ${plural(P.min, 'mês', 'meses')} depois, o cliente fica em <b>Acompanhamento insuficiente</b>, fora de melhora, piora e permanência. ` +
-    `<b>Mês pago:</b> soma do Valor Pago no mês maior que zero, pela ${P.modo === 'pag' ? 'data do pagamento' : 'referência da fatura (Mês/Ano)'}. ` +
+    (usaFat() ? '<b>Meses observados:</b> só os meses em que a matrícula tinha conta a pagar (água + esgoto com vencimento no mês, na base de faturamento). ' : '') +
+    `<b>Mês pago:</b> soma do Valor Pago no mês maior que zero, pela ${{ cred: 'data de crédito', pag: 'data do pagamento', ref: 'referência da fatura (Mês/Ano)' }[P.modo]}. ` +
     (P.unidade === 'evento' ? '<b>Unidade:</b> cada termo aplicado; ' : '<b>Unidade:</b> a matrícula, com o primeiro termo do ano; ') + 'se a matrícula recebeu outro termo, o período depois termina no mês anterior a ele.';
   const sd = []; for (let r = 0; r <= D.L; r++) if (D.semDados[r]) sd.push(amLabel(D.am0 + r));
-  $('#limiteTxt').innerHTML = '<b>Limitação:</b> a pasta ainda não tem base de faturamento. Sem ela, um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar (ligação cortada ou sem faturamento no mês).' +
+  $('#limiteTxt').innerHTML = (usaFat()
+    ? '<b>Atenção:</b> conta e pagamento são comparados pelo mês. Um crédito no mês conta para a conta que vence naquele mês, mesmo que pague uma conta atrasada; um crédito em mês sem conta entra só no valor arrecadado.'
+    : '<b>Limitação:</b> ' + (D.temFat ? 'o faturamento está desligado nos parâmetros. ' : 'a pasta não tem base de faturamento. ') + 'Assim, um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar (ligação cortada ou sem faturamento no mês).') +
     (sd.length ? ` Meses sem nenhum dado na base, que ficam fora das contas: ${sd.join(', ')}.` : '');
 }
 
@@ -1657,7 +1773,7 @@ function renderGrupo(k){
 
 // % que pagou em cada mês contado a partir do termo (−12 a −1 antes; +1 em diante depois; o mês do termo fica fora)
 function renderEvento(k){
-  const grupo = st.ev, nR = D.nR, V = D.V;
+  const grupo = st.ev, nR = D.nR, V = D.V, F = usaFat() ? D.fat : null;
   const entra = u => k[u] && D.cA[u] >= 0 && (grupo === 'todos' || (grupo === 'ad' ? D.cA[u] === 0 : D.cA[u] >= 2));
   let maxO = 1;
   for (let u = 0; u < D.n; u++) if (entra(u)) maxO = Math.max(maxO, D.fimD[u] - D.tI[u]);
@@ -1668,7 +1784,7 @@ function renderEvento(k){
     const t = D.tI[u], b = D.uMat[u] * nR;
     offs.forEach((o, i) => {
       const r = t + o;
-      if (r < 0 || r > D.L || D.semDados[r] || (o > 0 && r > D.fimD[u])) return;
+      if (r < 0 || r > D.L || D.semDados[r] || (o > 0 && r > D.fimD[u]) || (F && !(F[b + r] > 0))) return;
       obs[i]++; const v = V[b + r]; if (v > 0){ pag[i]++; val[i] += v; }
     });
   }
@@ -1690,7 +1806,8 @@ function renderEvento(k){
     { nome: '% que pagou', valor: obs[i] ? nf1.format(pag[i] / obs[i] * 100) + '%' : '–', cls: 'forte' },
     { nome: 'Valor pago', valor: brl0.format(val[i]) }
   ] };
-  $('#evNota').textContent = 'Percentual que pagou em cada mês contado a partir do termo (a linha tracejada marca o mês do termo, que fica fora). Depois do termo, cada mês só inclui quem já chegou nele: os meses mais distantes têm só os termos mais antigos.';
+  $('#evNota').textContent = 'Percentual que pagou em cada mês contado a partir do termo (a linha tracejada marca o mês do termo, que fica fora)' +
+    (F ? ', entre quem tinha conta a pagar no mês' : '') + '. Depois do termo, cada mês só inclui quem já chegou nele: os meses mais distantes têm só os termos mais antigos.';
 }
 
 function renderRodape(){
@@ -1705,11 +1822,24 @@ function renderRodape(){
   partes.push(`Termos: ${nf0.format(t.linhas)} linhas da aba Termos, ${plural(nE, 'termo', 'termos')} de 2026 em ${plural(nM, 'matrícula', 'matrículas')}` +
     (t.mesmoMes ? ` (${plural(t.mesmoMes, 'linha repetida', 'linhas repetidas')} da mesma matrícula no mesmo mês ${t.mesmoMes === 1 ? 'virou' : 'viraram'} um termo só)` : '') +
     (multi ? `; ${plural(multi, 'matrícula tem', 'matrículas têm')} mais de um termo no ano` : '') +
-    (t.foraAno ? `; ${plural(t.foraAno, 'termo', 'termos')} de outros anos fora da análise` : '') + (t.semData ? `; ${plural(t.semData, 'linha', 'linhas')} sem data` : '') + '.' +
+    (t.foraAno ? `; ${plural(t.foraAno, 'termo', 'termos')} de outros anos fora da análise` : '') + (t.semData ? `; ${plural(t.semData, 'linha', 'linhas')} sem data` : '') +
+    (t.valorZero ? `; ${plural(t.valorZero, 'termo', 'termos')} de 2026 com Valor zero (isentos ou cancelados) fora da análise` : '') + '.' +
     (t.colData ? ` O mês do termo vem da coluna ${esc(t.colData)}` + (t.semNeg ? `; ${plural(t.semNeg, 'termo sem', 'termos sem')} Data de negociação ${t.semNeg === 1 ? 'usou' : 'usaram'} a Data de aplicação.` : '.') : ''));
+  const f = D.stats.fat;
+  if (f && f.linhas){
+    const meses = f.porMes.map(([a]) => a).filter(a => a >= D.am0 && a < D.am0 + D.nR);
+    partes.push(`Faturamento: ${nf0.format(f.linhas)} linhas de VALOR DE AGUA e VALOR DE ESGOTO das matrículas com termo` +
+      (meses.length ? `, vencimentos de ${amLabel(meses[0])} a ${amLabel(meses[meses.length - 1])}` : '') +
+      (f.rubOutras ? `; ${plural(f.rubOutras, 'linha', 'linhas')} de outras rubricas ${f.rubOutras === 1 ? 'ignorada' : 'ignoradas'}` : '') +
+      (f.repetidas ? `; ${plural(f.repetidas, 'linha repetida descartada', 'linhas repetidas descartadas')}` : '') +
+      (f.semVenc ? `; ${plural(f.semVenc, 'linha', 'linhas')} sem Data de Vencimento` : '') +
+      (f.fora ? `; ${plural(f.fora, 'linha', 'linhas')} com vencimento fora do período da arrecadação` : '') + '.' +
+      (f.sitc.length > 1 ? ' Situacao Conta: ' + f.sitc.slice(0, 6).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.' : ''));
+  } else partes.push('Faturamento: nenhuma tabela com a coluna Rubrica foi encontrada na pasta.');
+  if (s.semCred) partes.push(`${plural(s.semCred, 'pagamento sem', 'pagamentos sem')} Data Crédito ${s.semCred === 1 ? 'usou' : 'usaram'} a Data Pagto.`);
   if (corte) partes.push(`${plural(corte, 'período depois foi encurtado', 'períodos depois foram encurtados')} por causa de um termo seguinte na mesma matrícula.`);
   if (incompleto) partes.push(`${plural(incompleto, nomeUn().slice(0, -1) + ' tem', nomeUn() + ' têm')} menos de 12 meses com dados antes do termo (classificação proporcional).`);
-  if (semArr) partes.push(`${plural(semArr, 'matrícula com termo não tem', 'matrículas com termo não têm')} nenhum pagamento na base: contam como Nunca pagou. Confira se a Matrícula é o mesmo número do Nº Ligação.`);
+  if (semArr) partes.push(`${plural(semArr, 'matrícula com termo não tem', 'matrículas com termo não têm')} nenhum pagamento na base${usaFat() ? '' : ' e contam como Nunca pagou'}. Confira se a Matrícula é o mesmo número do Nº Ligação.`);
   if (s.sit.length > 1) partes.push('Situação Pagto: ' + s.sit.slice(0, 8).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.');
   if (s.ignoradas.length) partes.push('Abas ignoradas: ' + s.ignoradas.slice(0, 6).map(esc).join(', ') + (s.ignoradas.length > 6 ? '…' : '') + '.');
   $('#foot').innerHTML = partes.join(' ');
@@ -1734,11 +1864,13 @@ function colunas(){
     { t: 'Data do termo', h: 'DATA_TERMO', v: u => D.eData[D.U[u]] },
     { t: 'Termo', h: 'TERMO_NA_MATRICULA', v: u => `${D.eSeq[D.U[u]]} de ${D.eNum[D.U[u]]}` },
     { t: 'Antes', h: 'CLASSIFICACAO_ANTES', v: u => faixaA(D.cA[u]), cls: u => 'f' + (D.cA[u] < 0 ? 4 : D.cA[u]), txt: 1 },
-    { t: 'Meses pagos antes', h: 'MESES_PAGOS_ANTES', v: u => D.pA[u], csv: u => D.pA[u] },
-    { t: 'Meses antes', h: 'MESES_ANTES', v: u => D.nA[u] },
+    { t: 'Meses observados antes', h: 'MESES_OBSERVADOS_ANTES', v: u => D.nA[u] },
+    { t: 'Meses pagos antes', h: 'MESES_PAGOS_ANTES', v: u => D.pA[u] },
+    usaFat() ? { t: 'Meses sem conta antes', h: 'MESES_SEM_CONTA_ANTES', v: u => D.scA[u] } : null,
     { t: 'Depois', h: 'CLASSIFICACAO_DEPOIS', v: u => DEPOIS[D.cD[u]], cls: u => 'f' + D.cD[u], txt: 1 },
-    { t: 'Meses acompanhados', h: 'MESES_OBSERVADOS_DEPOIS', v: u => D.nD[u] },
+    { t: 'Meses observados depois', h: 'MESES_OBSERVADOS_DEPOIS', v: u => D.nD[u] },
     { t: 'Meses pagos depois', h: 'MESES_PAGOS_DEPOIS', v: u => D.pD[u] },
+    usaFat() ? { t: 'Meses sem conta depois', h: 'MESES_SEM_CONTA_DEPOIS', v: u => D.scD[u] } : null,
     { t: '% pago depois', h: 'PCT_PAGO_DEPOIS', v: u => pctD(u) == null ? '–' : nf1.format(pctD(u) * 100) + '%', csv: u => pctD(u) == null ? '' : nf1.format(pctD(u) * 100) },
     { t: 'Resultado', h: 'RESULTADO', v: resTxt, cls: u => 'r' + (D.res[u] < 0 ? 3 : D.res[u]), txt: 1 },
     { t: 'Valor pago antes', h: 'VALOR_PAGO_ANTES', v: u => nf2.format(D.sA[u]), csv: u => decCsv(D.sA[u]) },
@@ -1785,10 +1917,10 @@ function janela(u, r){
 }
 function renderCons(recalc){
   if (recalc || !st.list){ st.list = consList(); st.page = 0; }
-  const list = st.list, nR = D.nR, V = D.V, cols = colunas();
+  const list = st.list, nR = D.nR, V = D.V, cols = colunas(), F = usaFat() ? D.fat : null;
   const pages = Math.max(1, Math.ceil(list.length / PAGE));
   st.page = Math.min(st.page, pages - 1);
-  $('#cCount').textContent = `${plural(list.length, nomeUn().slice(0, -1), nomeUn())} · valor pago em cada mês pela ${P.modo === 'pag' ? 'data do pagamento' : 'referência da fatura'}`;
+  $('#cCount').textContent = `${plural(list.length, nomeUn().slice(0, -1), nomeUn())} · valor pago em cada mês pela ${{ cred: 'data de crédito', pag: 'data do pagamento', ref: 'referência da fatura' }[P.modo]}`;
   $('#pInfo').textContent = `Página ${st.page + 1} de ${nf0.format(pages)}`;
   $('#pPrev').disabled = st.page === 0; $('#pNext').disabled = st.page >= pages - 1;
   let h = '<table><thead><tr>' + cols.map((c, i) => `<th class="txt${c.c2 ? ' c2' : ''}">${c.t}</th>`).join('');
@@ -1799,9 +1931,10 @@ function renderCons(recalc){
     const u = list[i], b = D.uMat[u] * nR;
     h += '<tr>' + cols.map(c => `<td class="${c.txt ? 'txt' : ''}${c.c2 ? ' c2' : ''}${c.cls ? ' ' + c.cls(u) : ''}">${esc(c.v(u))}</td>`).join('');
     for (let r = 0; r < nR; r++){
-      const v = V[b + r], j = janela(u, r);
-      const c = j === 3 ? 'mt' : D.semDados[r] ? 'sd' : !j ? 'fora' : v > 0 ? '' : 'sem';
-      h += `<td class="${c}"${D.semDados[r] ? ' title="Mês sem dados na base"' : ''}>${D.semDados[r] ? 's/d' : v > 0 ? nf2.format(v) : '–'}</td>`;
+      const v = V[b + r], j = janela(u, r), semConta = F && !(F[b + r] > 0);
+      const c = j === 3 ? 'mt' : D.semDados[r] ? 'sd' : !j ? 'fora' : semConta ? 'nc' : v > 0 ? '' : 'sem';
+      const tip = D.semDados[r] ? 'Mês sem dados na base' : semConta ? 'Sem conta a pagar no mês' : F ? 'Conta do mês: ' + nf2.format(F[b + r]) : '';
+      h += `<td class="${c}"${tip ? ` title="${tip}"` : ''}>${D.semDados[r] ? 's/d' : v > 0 ? nf2.format(v) : semConta ? 's/c' : '–'}</td>`;
     }
     h += '</tr>';
   }
@@ -1821,7 +1954,9 @@ async function exportCsv(){
   bloqueia(true); prog(true, 'Gerando o CSV', plural(list.length, 'linha', 'linhas'), 0);
   const q = s => { s = String(s); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const head = [...cols.map(c => c.h), 'MES_TERMO'];
+  const F = usaFat() ? D.fat : null;
   for (let r = 0; r < nR; r++) head.push('PAGO ' + amLabel(D.am0 + r));
+  if (F) for (let r = 0; r < nR; r++) head.push('CONTA ' + amLabel(D.am0 + r));
   const parts = ['﻿' + head.join(';') + '\r\n'];
   for (let i = 0; i < list.length; i += 5000){
     let chunk = '';
@@ -1829,6 +1964,7 @@ async function exportCsv(){
       const u = list[x], b = D.uMat[u] * nR;
       const row = [...cols.map(c => q(c.csv ? c.csv(u) : c.v(u))), amLabel(D.eAm[D.U[u]])];
       for (let r = 0; r < nR; r++){ const v = V[b + r]; row.push(D.semDados[r] ? 's/d' : v > 0 ? decCsv(v) : ''); }
+      if (F) for (let r = 0; r < nR; r++) row.push(F[b + r] > 0 ? decCsv(F[b + r]) : '');
       chunk += row.join(';') + '\r\n';
     }
     parts.push(chunk);
