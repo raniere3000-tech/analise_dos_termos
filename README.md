@@ -20,7 +20,7 @@ Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou
 
 **Arrecadação:** Nº Ligação, Nº Nota, Mês, Ano, Valor Pago, Data Pagto., Utilização (Sub. Categ.), Zona (Localidade), Cliente, Situação Pagto. As demais colunas da exportação são lidas e ignoradas. O cabeçalho pode estar em qualquer uma das 30 primeiras linhas.
 
-**Faturamento:** N. da Ligacao, Rubrica, Valor Parcela, Data de Vencimento e Nome Cliente. Só as rubricas VALOR DE AGUA e VALOR DE ESGOTO entram; a conta do mês é a soma das duas, pelo mês do vencimento.
+**Faturamento:** .xlsx ou .csv (qualquer separador e codificação comuns), com N. da Ligacao, Rubrica, Valor Parcela, Data de Vencimento e Nome Cliente. Se o faturamento não puder ser usado, o aviso amarelo do Resumo diz o motivo. Só as rubricas VALOR DE AGUA e VALOR DE ESGOTO entram; a conta do mês é a soma das duas, pelo mês do vencimento.
 
 **Termos:** só a aba **Termos** é lida (a aba Resumo é ignorada). Usa Matrícula (o mesmo número do Nº Ligação), Data de negociação (mês do termo; sem ela, a Data de aplicação), Tipo de atividade e Valor. Situação do termo, Faturado, Isento, Frente, Equipe, Categoria e Origem viram filtros. Só entram os termos de 2026 com Valor maior que zero; se a matrícula tiver mais de um termo no ano, vale o primeiro.
 

@@ -299,7 +299,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.2</span>
+      <span class="versao" id="versao" title="Versão do painel">v2.3</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -570,15 +570,20 @@ const RUBRICAS = new Set(['VALOR_DE_AGUA', 'VALOR_DE_ESGOTO']);
 function toNum(v){
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return isFinite(v) ? v : 0;
-  let s = String(v).trim().replace(/^R\$\s*/, '');
-  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  let s = String(v).trim().replace(/^R\$\s*/, '').replace(/\s/g, '');
+  // decimal é o último separador quando há os dois (1.234,56 ou 1,234.56); só vírgula: uma é decimal, várias são milhar
+  const lc = s.lastIndexOf(','), ld = s.lastIndexOf('.');
+  if (lc >= 0 && ld >= 0) s = lc > ld ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (lc >= 0) s = s.indexOf(',') === lc ? s.replace(',', '.') : s.replace(/,/g, '');
+  else if (ld >= 0 && s.indexOf('.') !== ld) s = s.replace(/\./g, '');
   const n = Number(s); return isFinite(n) ? n : 0;
 }
 // número da ligação: o mesmo texto em todos os arquivos (sem zeros à esquerda e sem ",0" de número do Excel)
 function ligKey(v){
   if (v == null || v === '') return '';
   if (typeof v === 'number') return isFinite(v) ? String(Math.round(v)) : '';
-  const s = String(v).trim();
+  const s = String(v).trim().replace(/^"+|"+$/g, '');
+  if (/^\d{1,3}([.\s]\d{3})+$/.test(s)) return String(parseInt(s.replace(/[.\s]/g, ''), 10));   // 1.234.567
   if (/^\d+([.,]0+)?$/.test(s)) return String(parseInt(s, 10));
   return s;
 }
@@ -593,8 +598,10 @@ function dataInfo(v){
     return { am: d.getUTCFullYear() * 12 + d.getUTCMonth(), txt: pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() };
   }
   const s = String(v).trim(); let m;
-  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s))) return { am: +m[3] * 12 + +m[2] - 1, txt: pad(m[1]) + '/' + pad(m[2]) + '/' + m[3] };
-  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s))) return { am: +m[1] * 12 + +m[2] - 1, txt: pad(m[3]) + '/' + pad(m[2]) + '/' + m[1] };
+  if ((m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/.exec(s))) return { am: +m[3] * 12 + +m[2] - 1, txt: pad(m[1]) + '/' + pad(m[2]) + '/' + m[3] };
+  if ((m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2})(?!\d)/.exec(s))) return { am: (2000 + +m[3]) * 12 + +m[2] - 1, txt: pad(m[1]) + '/' + pad(m[2]) + '/20' + m[3] };
+  if ((m = /^(20\d{2})(\d{2})(\d{2})$/.exec(s)) && +m[2] >= 1 && +m[2] <= 12) return { am: +m[1] * 12 + +m[2] - 1, txt: m[3] + '/' + m[2] + '/' + m[1] };
+  if ((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/.exec(s))) return { am: +m[1] * 12 + +m[2] - 1, txt: pad(m[3]) + '/' + pad(m[2]) + '/' + m[1] };
   if ((m = /^(\d{1,2})\/(\d{4})$/.exec(s))) return { am: +m[2] * 12 + +m[1] - 1, txt: pad(m[1]) + '/' + m[2] };
   if ((m = /^(\d{4})-(\d{1,2})$/.exec(s))) return { am: +m[1] * 12 + +m[2] - 1, txt: pad(m[2]) + '/' + m[1] };
   return null;
@@ -763,18 +770,27 @@ function splitCsv(line, sep){
   }
   out.push(cur); return out;
 }
-async function streamCsv(file, onRow, onProgress){
+async function streamCsv(file, onRow, onProgress, pre, info){
   const head = new Uint8Array(await file.slice(0, 65536).arrayBuffer());
   let enc = 'utf-8';
-  try { new TextDecoder('utf-8', { fatal: true }).decode(head, { stream: true }); } catch (_) { enc = 'windows-1252'; }
+  if (head[0] === 0xFF && head[1] === 0xFE) enc = 'utf-16le';
+  else if (head[0] === 0xFE && head[1] === 0xFF) enc = 'utf-16be';
+  else try { new TextDecoder('utf-8', { fatal: true }).decode(head, { stream: true }); } catch (_) { enc = 'windows-1252'; }
   const reader = file.stream().pipeThrough(new TextDecoderStream(enc)).getReader();
   let buf = '', seen = 0, sep = null, first = true;
+  // o separador é o mais frequente da linha; só fica fixo numa linha com pelo menos 3 separadores (pula títulos)
   const linha = l => {
-    if (first){ l = l.replace(/^﻿/, ''); first = false; }
+    if (first){ l = l.replace(/^\ufeff/, ''); first = false; }
     if (l.endsWith('\r')) l = l.slice(0, -1);
     if (!l.trim()) return true;
-    if (!sep){ const n = c => l.split(c).length; sep = [';', '\t', ','].sort((a, b) => n(b) - n(a))[0]; }
-    return onRow(splitCsv(l, sep));
+    let s = sep;
+    if (!s){
+      const n = c => l.split(c).length - 1;
+      s = [';', '\t', ',', '|'].sort((a, b) => n(b) - n(a))[0];
+      if (n(s) >= 3){ sep = s; if (info){ info.sep = s === '\t' ? 'tabulação' : s; info.enc = enc; } }
+    }
+    if (pre && sep && !pre(l, sep)) return true;
+    return onRow(splitCsv(l, s));
   };
   for (;;){
     const { value, done } = await reader.read();
@@ -795,7 +811,8 @@ async function streamCsv(file, onRow, onProgress){
 async function percorre(file, onTabela, onProgress, escolhe){
   if (/\.csv$/i.test(file.name)){
     const t = onTabela(file.name);
-    await streamCsv(file, c => t.linha(c), onProgress); t.fim(); return;
+    t.info = {};
+    await streamCsv(file, c => t.linha(c), onProgress, (l, sep) => !t.preCsv || t.preCsv(l, sep), t.info); t.fim(); return;
   }
   const entries = await readZip(file);
   const byName = new Map(entries.map(e => [e.name, e]));
@@ -832,6 +849,15 @@ function tabela(alias, onLinha, onFim, onCabecalho){
   };
   return t;
 }
+// pré-filtro de linhas do .csv: lê só o campo da ligação
+function preFiltroCsv(col, aceita){
+  return (l, sep) => {
+    let v;
+    if (col === 0 && l[0] !== '"'){ const i = l.indexOf(sep); v = i < 0 ? l : l.slice(0, i); }
+    else v = splitCsv(l, sep)[col];
+    return aceita(ligKey(v), v);
+  };
+}
 const colLetra = i => { let s = ''; i++; while (i > 0){ const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; };
 // pré-filtro de linhas do .xlsx: lê só a célula da ligação e descarta a linha se a ligação não tem termo
 function preFiltro(col, aceita){
@@ -842,7 +868,7 @@ function preFiltro(col, aceita){
     let v;
     if (t === 'inlineStr') v = texts(m[2]);
     else { const vm = /<v>([\s\S]*?)<\/v>/.exec(m[2]); if (!vm) return false; v = t === 's' ? sst[+vm[1]] : t === 'n' ? +vm[1] : dec(vm[1]); }
-    return aceita(ligKey(v));
+    return aceita(ligKey(v), v);
   };
 }
 
@@ -904,7 +930,7 @@ const ordData = t => t.split('/').reverse().join('');
 /* ---------- base de arrecadação: só guarda os pagamentos dos clientes com termo ---------- */
 class Arrecadacao {
   constructor(termos){
-    this.idx = new Map(); this.mats = [];
+    this.idx = new Map(); this.mats = []; this.exLig = [];
     for (const k of termos.keys()){ this.idx.set(k, this.mats.length); this.mats.push(k); }
     const n = this.mats.length;
     this.nome = new Array(n).fill(''); this.zona = new Int32Array(n).fill(-1); this.util = new Int32Array(n).fill(-1); this.ult = new Int32Array(n).fill(-1);
@@ -917,6 +943,7 @@ class Arrecadacao {
   }
   add(c, h){
     const mk = ligKey(c[h.mat]); if (!mk){ this.st.semLig++; return; }
+    if (this.exLig.length < 5) this.exLig.push(String(c[h.mat]).trim());
     const ref = h.mes !== undefined ? mesAno(c[h.mes], c[h.ano]) : h.ref !== undefined ? (dataInfo(c[h.ref]) || { am: -1 }).am : -1;
     const dp = h.dpag !== undefined ? dataInfo(c[h.dpag]) : null;
     const pag = dp ? dp.am : -1;
@@ -958,7 +985,8 @@ class Arrecadacao {
   build(termos){
     // eixo de meses: o período dos pagamentos (Data Pagto.); sem essa coluna, o das referências
     const temPag = this.maxPag >= 0;
-    const am0 = temPag ? this.minPag : this.minRef, am1 = temPag ? this.maxPag : this.maxRef;
+    let minT = Infinity; for (const l of termos.values()) for (const e of l) if (e.am < minT) minT = e.am;
+    const am0 = Math.max(temPag ? this.minPag : this.minRef, minT - 12), am1 = temPag ? this.maxPag : this.maxRef;
     const nR = am1 - am0 + 1, nM = this.mats.length;
     const valRef = new Float64Array(nM * nR), valPag = new Float64Array(nM * nR), valCred = new Float64Array(nM * nR), temArr = new Uint8Array(nM);
     const credVenc = new Int16Array(nM * nR).fill(-1);
@@ -1025,14 +1053,25 @@ class Faturamento {
   constructor(idx){
     this.idx = idx; this.mi = new G(Int32Array); this.am = new G(Int32Array); this.val = new G(Float64Array);
     this.vistos = new Set(); this.nome = new Map();
-    this.st = { linhas: 0, rubOutras: 0, semVenc: 0, repetidas: 0, porMes: new Map(), sitc: new Map(), abas: [] };
+    // diagnóstico: linhas lidas, linhas de matrículas com termo, rubricas encontradas e exemplos do que não foi lido
+    this.st = { linhas: 0, rubOutras: 0, semVenc: 0, repetidas: 0, porMes: new Map(), sitc: new Map(), abas: [],
+      lidas: 0, daMat: 0, rub: new Map(), exLig: [], exVenc: [], faltam: [] };
+  }
+  // pré-filtro: conta a linha e guarda exemplos de ligação para comparar com as outras bases
+  aceita(k, bruto){
+    this.st.lidas++;
+    if (this.st.exLig.length < 5 && bruto != null && bruto !== '') this.st.exLig.push(String(bruto).trim());
+    return this.idx.has(k);
   }
   add(c, h){
+    if (!h.pre){ this.st.lidas++; if (this.st.exLig.length < 5 && c[h.mat] != null && c[h.mat] !== '') this.st.exLig.push(String(c[h.mat]).trim()); }
     const mi = this.idx.get(ligKey(c[h.mat])); if (mi === undefined) return;
+    this.st.daMat++;
+    const rb = str(c[h.rub]); this.st.rub.set(rb, (this.st.rub.get(rb) || 0) + 1);
     if (h.nome !== undefined && !this.nome.has(mi) && str(c[h.nome])) this.nome.set(mi, str(c[h.nome]));
     if (!RUBRICAS.has(norm(c[h.rub]))){ this.st.rubOutras++; return; }
     const v = h.venc !== undefined ? dataInfo(c[h.venc]) : null;
-    if (!v){ this.st.semVenc++; return; }
+    if (!v){ this.st.semVenc++; if (this.st.exVenc.length < 3) this.st.exVenc.push(str(c[h.venc]) || '(vazio)'); return; }
     const valor = toNum(c[h.valor]);
     const chave = mi + '|' + norm(c[h.rub]) + '|' + v.txt + '|' + (h.refl !== undefined ? str(c[h.refl]) : '') + '|' + valor;
     if (this.vistos.has(chave)){ this.st.repetidas++; return; }
@@ -1055,7 +1094,9 @@ class Faturamento {
     // cliente sem nenhum pagamento na arrecadação: o nome vem do faturamento
     for (const [mi, nome] of this.nome) if (!d.nomes[mi]) d.nomes[mi] = nome;
     d.stats.fat = { linhas: this.st.linhas, rubOutras: this.st.rubOutras, semVenc: this.st.semVenc, repetidas: this.st.repetidas, fora, abas: this.st.abas,
-      porMes: [...this.st.porMes.entries()].sort((a, b) => a[0] - b[0]), sitc: [...this.st.sitc.entries()].sort((a, b) => b[1] - a[1]) };
+      porMes: [...this.st.porMes.entries()].sort((a, b) => a[0] - b[0]), sitc: [...this.st.sitc.entries()].sort((a, b) => b[1] - a[1]),
+      lidas: this.st.lidas, daMat: this.st.daMat, rub: [...this.st.rub.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8),
+      exLig: this.st.exLig, exVenc: this.st.exVenc, faltam: this.st.faltam };
   }
 }
 
@@ -1088,21 +1129,31 @@ async function processFiles(files){
     progress(label, 'Abrindo o arquivo…', 0, true);
     await percorre(file, aba => {
       const antesA = A.st.linhas, antesF = F.st.linhas;
-      return tabela(h => h.nomes.includes('RUBRICA') ? ALIAS_FAT : ALIAS_ARR,
+      let t;
+      return t = tabela(h => h.nomes.includes('RUBRICA') ? ALIAS_FAT : ALIAS_ARR,
         (c, h) => h.rub !== undefined ? F.add(c, h) : A.add(c, h),
         h => {
           const nome = nomeArq(file) + (aba !== file.name ? ' / ' + aba : '');
-          if (h && h.rub !== undefined) F.st.abas.push({ arquivo: nome, linhas: F.st.linhas - antesF });
+          if (h && h.rub !== undefined) F.st.abas.push({ arquivo: nome, linhas: F.st.linhas - antesF, sep: t.info && t.info.sep, enc: t.info && t.info.enc });
           else if (h && h.valor !== undefined) A.st.abas.push({ arquivo: nomeArq(file), aba, linhas: A.st.linhas - antesA });
           else A.st.ignoradas.push(nome);
         },
-        (h, t) => { if (h.rub !== undefined) t.pre = preFiltro(h.mat, k => A.idx.has(k)); });
+        (h, t) => {
+          if (h.rub === undefined) return;
+          const falta = [['valor', 'Valor Parcela'], ['venc', 'Data de Vencimento']].filter(([k]) => h[k] === undefined).map(([, n]) => n);
+          if (falta.length) F.st.faltam.push(nomeArq(file) + ': sem ' + falta.join(' e '));
+          h.pre = true;
+          t.pre = preFiltro(h.mat, (k, v) => F.aceita(k, v));
+          t.preCsv = preFiltroCsv(h.mat, (k, v) => F.aceita(k, v));
+        });
     }, (p, msg) => progress(label, msg || `${A.st.linhas.toLocaleString('pt-BR')} pagamentos e ${F.st.linhas.toLocaleString('pt-BR')} linhas de faturamento lidas`, p));
   }
   if (!A.st.linhas) throw new Error('Nenhum pagamento encontrado. Confira se os arquivos de arrecadação têm as colunas Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.');
   progress('Montando o consolidado', 'Organizando os pagamentos por cliente e mês…', 1, true);
   const d = A.build(T.m);
   F.build(d);
+  // exemplos de número de ligação de cada base, para conferir se estão no mesmo formato
+  d.stats.exLig = { termos: [...T.m.keys()].slice(0, 5), arrecadacao: A.exLig };
   d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, semNeg: T.st.semNeg, mesmoMes: T.st.mesmoMes, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData, colData: T.st.colData, valorZero: T.st.valorZero };
   return d;
 }
@@ -1122,7 +1173,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.2';
+const VERSAO_SITE = '2.3';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1626,6 +1677,21 @@ function renderResumo(){
   renderRodape();
 }
 
+// por que o faturamento não pôde ser usado (mostrado no aviso, para o usuário corrigir os arquivos)
+function motivoSemFat(){
+  const f = D.stats.fat || {}, ex = D.stats.exLig || {}, lista = a => (a || []).map(x => '“' + esc(x) + '”').join(', ');
+  if (!f.abas || !f.abas.length){
+    const ign = (D.stats.ignoradas || []).filter(x => /fatur/i.test(x));
+    return 'nenhuma tabela de faturamento foi reconhecida (é preciso ter as colunas N. da Ligacao e Rubrica no cabeçalho, nas primeiras 30 linhas)' +
+      (ign.length ? `. Arquivos lidos sem esse cabeçalho: ${ign.slice(0, 3).map(esc).join(', ')}${ign.length > 3 ? ` e mais ${ign.length - 3}` : ''}` : '') + '.';
+  }
+  const base = `o faturamento foi encontrado (${plural(f.abas.length, 'arquivo', 'arquivos')}, ${nf0.format(f.lidas || 0)} linhas lidas), mas nenhuma linha pôde ser usada: `;
+  if (f.faltam && f.faltam.length) return base + 'falta coluna em ' + f.faltam.slice(0, 3).map(esc).join('; ') + '.';
+  if (!f.daMat) return base + `nenhum número de ligação coincide com as matrículas dos termos. Exemplos no faturamento: ${lista(f.exLig)}; nos termos: ${lista(ex.termos)}.`;
+  if (f.semVenc && !f.rub.some(([r]) => /VALOR_DE_(AGUA|ESGOTO)/.test(norm(r)))) return base + `as rubricas encontradas foram ${f.rub.map(([r, n]) => '“' + esc(r) + '” (' + nf0.format(n) + ')').join(', ')}, e o painel procura VALOR DE AGUA e VALOR DE ESGOTO.`;
+  if (f.semVenc) return base + `a Data de Vencimento não foi entendida (exemplos: ${lista(f.exVenc)}).`;
+  return base + `as rubricas encontradas foram ${f.rub.map(([r, n]) => '“' + esc(r) + '” (' + nf0.format(n) + ')').join(', ')}, e o painel procura VALOR DE AGUA e VALOR DE ESGOTO.`;
+}
 function renderRegra(){
   const ult = amLabel(D.am0 + D.L);
   const prazo = { 0: 'até o fim do mês do vencimento', 1: 'até o fim do mês seguinte ao vencimento', 2: 'até 2 meses depois do vencimento', 99: 'em qualquer data' }[P.tol];
@@ -1644,7 +1710,7 @@ function renderRegra(){
     ? '<b>Valores:</b> a média mensal soma tudo o que foi creditado no período, inclusive pagamento de contas atrasadas.'
     : usaFat()
     ? '<b>Atenção:</b> a arrecadação não tem a coluna Vencimento, então conta e pagamento são comparados pelo mês: um crédito no mês conta para a conta que vence naquele mês, mesmo que pague uma conta atrasada.'
-    : '<b>Limitação:</b> ' + (D.temFat ? 'o faturamento está desligado nos parâmetros. ' : 'a pasta não tem base de faturamento. ') + 'Assim, um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar (ligação cortada ou sem faturamento no mês).') +
+    : '<b>Limitação:</b> ' + (D.temFat ? 'o faturamento está desligado nos parâmetros. ' : motivoSemFat() + ' ') + 'Assim, um mês sem pagamento conta como não pago mesmo que não tenha havido conta a pagar (ligação cortada ou sem faturamento no mês).') +
     (sd.length ? ` Meses sem nenhum dado na base, que ficam fora das contas: ${sd.join(', ')}.` : '');
 }
 
@@ -1888,7 +1954,12 @@ function renderRodape(){
       (f.semVenc ? `; ${plural(f.semVenc, 'linha', 'linhas')} sem Data de Vencimento` : '') +
       (f.fora ? `; ${plural(f.fora, 'linha', 'linhas')} com vencimento fora do período da arrecadação` : '') + '.' +
       (f.sitc.length > 1 ? ' Situacao Conta: ' + f.sitc.slice(0, 6).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.' : ''));
-  } else partes.push('Faturamento: nenhuma tabela com a coluna Rubrica foi encontrada na pasta.');
+  } else partes.push('Faturamento não usado: ' + motivoSemFat());
+  if (f && f.abas && f.abas.length){
+    const formatos = [...new Set(f.abas.map(a => a.sep ? `separador “${a.sep}”, ${a.enc}` : 'Excel'))];
+    partes.push(`Leitura do faturamento: ${plural(f.abas.length, 'arquivo', 'arquivos')} (${formatos.join('; ')}), ${nf0.format(f.lidas || 0)} linhas, ${nf0.format(f.daMat || 0)} de matrículas com termo` +
+      (f.rub && f.rub.length ? `; rubricas: ${f.rub.map(([r, n]) => esc(r || '(vazio)') + ' ' + nf0.format(n)).join(', ')}` : '') + '.');
+  }
   if (s.semCred) partes.push(`${plural(s.semCred, 'pagamento sem', 'pagamentos sem')} Data Crédito ${s.semCred === 1 ? 'usou' : 'usaram'} a Data Pagto.`);
   if (corte) partes.push(`${plural(corte, 'período depois foi encurtado', 'períodos depois foram encurtados')} por causa de um termo seguinte na mesma matrícula.`);
   if (incompleto) partes.push(`${plural(incompleto, nomeUn().slice(0, -1) + ' tem', nomeUn() + ' têm')} menos de 12 meses com dados antes do termo (classificação proporcional).`);
