@@ -1,0 +1,1646 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Termos e adimplência 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mesma paleta do painel de faturamento: marinho/azul = principal e positivo, laranja = negativo */
+:root{
+  --preto:#1f2d3d; --marinho:#102840; --azul:#176b9c; --azul-claro:#64748b; --cinza:#f3f6f9;
+  --linha:#dbe4ec; --tint:#e7f0f6; --zebra:#f7fafc; --laranja:#E8710A; --laranja-texto:#C2560C; --laranja-tint:#FDEEDF;
+  --existente:#BCD0E1; --aviso:#FFF8E1; --aviso-borda:#E0C070;
+  --fonte:'IBM Plex Sans','Segoe UI',Arial,sans-serif;
+  --fonte-cond:'IBM Plex Sans Condensed','Segoe UI',Arial,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{font-family:var(--fonte);background:var(--cinza);margin:0;color:var(--preto);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--azul-claro);outline-offset:2px}
+
+/* ===== Cabeçalho ===== */
+.header-exec{background:linear-gradient(135deg,#0b2447 0%,#14375e 60%,#1b4a76 100%);color:#fff;padding:10px 16px 12px}
+.header-exec :focus-visible{outline-color:#fff}
+.header-inner{max-width:1500px;margin:0 auto}
+.header-linha{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap}
+.header-badge{display:inline-block;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#5ee7c8;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 11px;border-radius:20px}
+.header-exec h1{font-size:18px;font-weight:600;margin:0;line-height:1.2;letter-spacing:-.01em}
+.versao{font-size:11px;font-weight:500;color:#C8D4EA;font-variant-numeric:tabular-nums}
+.header-exec .status{font-size:12px;color:#cbd5e1;margin:0 0 0 auto}
+.acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn-top{padding:5px 12px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.35)}
+.btn-top:hover{background:rgba(255,255,255,.24)}
+.btn-top.primary{background:#fff;color:var(--marinho);border-color:#fff}
+.btn-top.primary:hover{background:#D5E0F2}
+.btn-top.quiet{background:none;border-color:transparent;color:#C8D4EA;font-weight:500}
+.btn-top.quiet:hover{color:#FFC9A0}
+.btn-top:disabled{opacity:.45;cursor:default}
+.fonte{font-size:12px;color:#C8D4EA}
+.fonte b{color:#fff;font-weight:600}
+.progresso{margin-top:10px}
+.prog-linha{display:flex;align-items:center;gap:12px;font-size:.85rem;color:#D5E0F2;flex-wrap:wrap}
+.prog-linha .barra{flex:0 1 320px;width:320px;height:8px;background:rgba(255,255,255,.2);border-radius:4px;overflow:hidden}
+.barra-fill{height:100%;width:0;background:#5ee7c8;transition:width .2s}
+.prog-linha b{color:#fff;font-variant-numeric:tabular-nums;min-width:38px}
+.progresso .nota{color:#C8D4EA;margin:4px 0 0;font-size:12.5px;min-height:1.2em}
+.progresso.erro #statusTexto,.progresso.erro .nota{color:#FFC9A0}
+.progresso.erro .barra,.progresso.erro #statusPct{display:none}
+
+/* ===== Barra de abas e filtros ===== */
+.toolbar{max-width:1500px;margin:10px auto 0;padding:0 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.toggle{display:inline-flex;background:#fff;border:1px solid var(--linha);border-radius:8px;padding:2px}
+.toggle button{padding:4px 16px;border:0;border-radius:6px;background:transparent;color:var(--azul);cursor:pointer;font-size:12.5px;font-weight:600}
+.toggle button:hover{color:var(--marinho)}
+.toggle button.active{background:var(--marinho);color:#fff}
+.filtros{display:flex;gap:8px;flex-wrap:wrap}
+.filtro-wrap{position:relative}
+.btn-filtro{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:8px;border:1px solid var(--linha);background:#fff;color:var(--marinho);cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap}
+.btn-filtro:hover{border-color:var(--azul-claro)}
+.badge{background:var(--marinho);color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-variant-numeric:tabular-nums}
+.painel-filtro{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:100;background:#fff;border:1px solid var(--linha);border-radius:8px;padding:12px;max-height:320px;overflow-y:auto;box-shadow:0 8px 24px rgba(5,5,13,.12);min-width:240px}
+.painel-filtro.aberto{display:block}
+.painel-acoes{display:flex;gap:8px;margin-bottom:10px}
+.check-list{display:flex;flex-direction:column;gap:6px}
+.check-item{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.check-item input{accent-color:var(--marinho)}
+.mini-btn{padding:4px 10px;border:1px solid var(--linha);border-radius:6px;background:var(--cinza);color:var(--marinho);cursor:pointer;font-size:12px;font-weight:600}
+
+/* ===== Conteúdo ===== */
+main{max-width:1500px;margin:0 auto;padding:0 16px 40px}
+.card{background:#fff;margin:10px 0;padding:14px 18px;border:1px solid var(--linha);border-radius:12px;box-shadow:0 3px 12px rgba(17,42,66,.045)}
+.card h2{font-size:14px;font-weight:600;margin:0 0 2px;color:var(--marinho);letter-spacing:-.005em}
+.nota-secao{margin:0 0 8px;color:var(--azul-claro);font-size:12px;line-height:1.4}
+.card-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px 16px;flex-wrap:wrap}
+.card-topo > div:first-child{flex:1 1 320px;min-width:0}
+.card-topo > .toggle,.card-topo > .card-acoes,.card-topo > .legenda{flex:0 0 auto}
+.card-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sel-mes{font:inherit;font-size:12.5px;padding:5px 10px;border:1px solid var(--linha);border-radius:8px;background:#fff;color:var(--marinho)}
+.legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--azul-claro)}
+.legenda i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:-1px}
+
+/* ===== KPIs: faixa única ===== */
+.kpis-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:1px;margin:10px 0;background:var(--linha);border:1px solid var(--linha);border-radius:8px;overflow:hidden}
+.kpi-card{background:#fff;padding:8px 12px;border-top:3px solid var(--marinho);min-width:0}
+.kpi-card.negativo{border-top-color:var(--laranja)}
+.kpi-card.destaque{background:var(--tint)}
+.kpi-card h3{font-size:11px;font-weight:500;color:var(--azul-claro);margin:0 0 2px;line-height:1.3;min-height:2.6em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kpi-valor{font-family:var(--fonte-cond);font-size:20px;font-weight:600;margin:0;color:var(--preto);letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-card.destaque .kpi-valor{font-size:24px;color:var(--marinho)}
+.kpi-card.negativo .kpi-valor{color:var(--laranja-texto)}
+.kpi-delta{font-size:11px;margin:1px 0 0;color:var(--azul-claro);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+@media (max-width:1100px){.kpis-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:560px){.kpis-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+.avisos-card{border-color:var(--laranja);display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;font-size:13px;color:var(--laranja-texto)}
+.btn-just{padding:5px 12px;border:1px solid var(--linha);border-radius:6px;background:#fff;color:var(--marinho);font-size:12.5px;cursor:pointer;font-weight:600}
+.btn-just:hover{border-color:var(--azul-claro)}
+.btn-just:disabled{opacity:.5;cursor:default}
+
+/* ===== Gráfico com tabela alinhada embaixo ===== */
+.bloco-rolagem{overflow-x:auto;scrollbar-width:thin}
+.bloco{min-width:880px}
+.bloco svg{display:block;width:100%;height:auto}
+table{border-collapse:collapse;width:100%;font-family:var(--fonte-cond);font-size:12.5px;line-height:1.35;font-variant-numeric:tabular-nums}
+th,td{padding:4px 7px;text-align:center;white-space:nowrap}
+.tab-alinhada{table-layout:fixed;margin-top:2px}
+.tab-alinhada col.rot{width:18%}
+.tab-alinhada th{color:var(--azul-claro);font-weight:600;font-size:11.5px;border-bottom:1px solid var(--linha)}
+.tab-alinhada td{border-bottom:1px solid #edf1f5}
+.tab-alinhada td:first-child,.tab-alinhada th:first-child{text-align:left;font-family:var(--fonte);font-size:12px;color:#334155;white-space:normal;line-height:1.25}
+.tab-alinhada tr.forte td{font-weight:700;color:var(--marinho);background:var(--tint)}
+.tab-alinhada tr.forte td:first-child{color:var(--marinho)}
+.tab-alinhada tr.info td{color:var(--laranja-texto)}
+.tab-alinhada tr.info td:first-child{color:var(--laranja-texto)}
+.tab-alinhada tr.mudo td{color:var(--azul-claro)}
+.tab-alinhada i.cor{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:0}
+
+/* ===== Tabelas por cidade e sub-categoria ===== */
+.tabela-wrap{overflow:auto;max-height:560px;scrollbar-width:thin}
+.tab-seg th{background:var(--marinho);color:#fff;font-weight:600;font-size:11.5px;position:sticky;top:0;z-index:2}
+.tab-seg th.sortable{cursor:pointer}
+.tab-seg th.sortable:hover{background:var(--azul)}
+.tab-seg td{border-bottom:1px solid #edf1f5}
+.tab-seg th.grupo{background:var(--azul);text-align:center}
+.tab-seg .mudo{color:var(--azul-claro);font-size:11px;font-weight:400}
+.tab-seg td.aviso-lista{text-align:left;color:var(--laranja-texto);background:var(--laranja-tint);white-space:normal}
+.btn-num{border:0;background:none;padding:0;font:inherit;color:var(--azul);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.btn-num:disabled{color:var(--azul-claro);text-decoration:none;cursor:default;font-weight:400}
+.tab-seg td:first-child,.tab-seg th:first-child{text-align:left;position:sticky;left:0;z-index:1;background:#fff}
+.tab-seg th:first-child{z-index:3;background:var(--marinho)}
+.tab-seg td:first-child{color:#334155;font-weight:600;font-family:var(--fonte);font-size:12.5px}
+.tab-seg tbody tr:hover td{background:#f8fafc}
+.tab-seg tr.linha-total td{background:var(--tint);border-top:1.5px solid var(--azul);font-weight:700;color:var(--marinho)}
+.tab-seg td.tot{font-weight:700;color:var(--marinho);background:var(--zebra)}
+.tab-seg td.info{color:var(--laranja-texto)}
+.tab-seg td.zero{color:#b6c2ce}
+
+/* ===== Consolidado ===== */
+.cons-bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:10px}
+.field{display:flex;align-items:center;gap:8px;color:var(--marinho);font-size:12.5px;font-weight:600}
+.field select,.field input{font-weight:400;padding:5px 10px;border:1px solid var(--linha);border-radius:8px;background:#fff;color:var(--marinho);min-width:160px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--linha);background:#fff;border-radius:999px;padding:2px 11px;font-size:12px;cursor:pointer;color:var(--azul-claro)}
+.chip[aria-pressed="true"]{background:var(--marinho);border-color:var(--marinho);color:#fff}
+.keyline{font-size:12px;color:var(--azul-claro);margin:0 0 6px}
+.keyline i{display:inline-block;width:11px;height:11px;border:1px solid var(--linha);margin:0 5px 0 14px;vertical-align:-1px}
+.keyline i:first-child{margin-left:0}
+.count{color:var(--azul-claro);font-size:12.5px;margin:0 0 6px}
+.aviso-cons{font-size:12px;color:var(--laranja-texto);margin:0 0 6px}
+.btn-link{border:0;background:none;padding:0;color:var(--azul);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline}
+.cons-wrap{overflow:auto;max-height:620px;border:1px solid var(--linha);border-radius:8px}
+.cons th,.cons td{font-size:12px;padding:4px 8px;border-bottom:1px solid #edf1f5;text-align:right}
+.cons th{background:var(--marinho);color:#fff;font-weight:600;position:sticky;top:0;z-index:2}
+.cons thead tr:nth-child(2) th{background:var(--azul);font-weight:500}
+.cons th.grp{text-align:left;border-left:1px solid rgba(255,255,255,.35)}
+.cons th.gs,.cons td.gs{border-left:1px solid var(--linha)}
+.cons .txt{text-align:left}
+.cons th:first-child,.cons td:first-child{position:sticky;left:0;z-index:1;background:#fff}
+.cons th:first-child{z-index:3;background:var(--marinho)}
+.cons .c2{position:sticky;left:var(--c1w,100px);z-index:1;background:#fff;border-right:1px solid var(--linha)}
+.cons thead th.c2{z-index:3;background:var(--marinho)}
+.cons thead tr:nth-child(2) th{left:auto;z-index:2}
+.cons tbody tr:hover td{background:#f8fafc}
+.cons td.pos{color:var(--marinho);font-weight:600}
+.cons td.neg{color:var(--laranja-texto);font-weight:600}
+.cons td.chg-in{background:var(--tint) !important;color:var(--marinho);font-weight:600}
+.cons td.chg-out{background:var(--laranja-tint) !important;color:var(--laranja-texto);font-weight:600}
+.cons td.warn{background:var(--aviso) !important;outline:1px dashed var(--aviso-borda);outline-offset:-2px}
+.pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;margin-top:10px;color:var(--azul-claro);font-size:12.5px}
+
+/* ===== Tela inicial ===== */
+.inicio{max-width:640px;margin:28px auto;background:#fff;border-radius:16px;border:1px solid var(--linha);box-shadow:0 12px 32px rgba(17,42,66,.08);padding:28px 30px}
+.inicio h2{margin:0 0 8px;font-size:22px;font-weight:600;color:var(--marinho)}
+.inicio p,.inicio li{color:var(--azul-claro)}
+.inicio ol{padding-left:20px}
+.drop{margin-top:18px;border:2px dashed var(--linha);border-radius:10px;padding:24px;text-align:center;color:var(--azul-claro)}
+.drop.over{border-color:var(--azul);background:var(--tint)}
+.bloco svg{cursor:crosshair}
+.dica{position:fixed;z-index:70;pointer-events:none;background:#fff;border:1px solid var(--linha);border-radius:8px;box-shadow:0 8px 24px rgba(17,42,66,.16);padding:8px 12px;font-size:12px;line-height:1.45;min-width:200px;max-width:320px;font-variant-numeric:tabular-nums}
+.dica b.mes{display:block;font-size:12.5px;color:var(--marinho);margin-bottom:4px}
+.dica .lin{display:flex;justify-content:space-between;gap:14px;color:#334155}
+.dica .lin span:last-child{font-family:var(--fonte-cond);font-weight:600;color:var(--preto)}
+.dica .lin i{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:0}
+.dica .lin.forte span{font-weight:700;color:var(--marinho)}
+.dica .lin.neg span:last-child{color:var(--laranja-texto)}
+.dica .lin.mudo{color:var(--azul-claro)}
+.dica hr{border:0;border-top:1px solid var(--linha);margin:4px 0}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--marinho);color:#fff;padding:10px 18px;border-radius:8px;z-index:60;font-size:13px;max-width:90vw}
+.rodape{color:var(--azul-claro);font-size:11.5px;margin:12px 2px 0;line-height:1.45}
+@media (prefers-reduced-motion: reduce){.barra-fill{transition:none}}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  .acoes,.fonte,.progresso,.toolbar .filtros,.toggle,.btn-just,.cons-bar{display:none !important}
+  .header-exec,th,.kpi-card,.tab-alinhada tr.forte td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card,.kpis-grid{break-inside:avoid}
+  .bloco{min-width:0}
+}
+
+/* ===== Matriz antes × depois ===== */
+.matriz{max-width:980px}
+.matriz th{background:var(--marinho);color:#fff;font-weight:600;font-size:11.5px;padding:6px 8px}
+.matriz th.canto{background:#fff;color:var(--azul-claro);text-align:left;font-weight:500;white-space:normal;line-height:1.3}
+.matriz th.grupo{background:var(--azul)}
+.matriz td{border:1px solid #edf1f5;padding:6px 8px;font-size:13px}
+.matriz td:first-child{text-align:left;font-family:var(--fonte);font-weight:600;color:#334155;font-size:12.5px;background:#fff}
+.matriz td.melhor{background:var(--tint)}
+.matriz td.pior{background:var(--laranja-tint)}
+.matriz td.pior .btn-num{color:var(--laranja-texto)}
+.matriz td.tot,.matriz tr.linha-total td{background:var(--zebra);font-weight:700;color:var(--marinho)}
+.matriz .pct{display:block;font-size:11px;color:var(--azul-claro);font-weight:400}
+.matriz-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--azul-claro);margin-top:8px}
+.matriz-leg i{display:inline-block;width:11px;height:11px;border:1px solid var(--linha);margin-right:6px;vertical-align:-1px}
+
+/* ===== Parâmetros ===== */
+details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size:12.5px;margin-top:4px}
+.param-grid{display:flex;flex-wrap:wrap;gap:10px 22px;margin:12px 0}
+.param-grid .field select,.param-grid .field input{min-width:0}
+.param-grid input[type=number]{width:64px}
+.faixas td input{width:46px;padding:3px 4px;border:1px solid var(--linha);border-radius:6px;text-align:center;font:inherit;color:var(--marinho)}
+.faixas th.antes{background:var(--azul);color:#fff}
+.faixas td.antes{background:var(--tint)}
+.faixas td:first-child{white-space:normal}
+.regra{font-size:12.5px;color:#334155;margin:6px 0 0;line-height:1.5}
+.regra b{color:var(--marinho)}
+
+/* ===== Faixas no Consolidado ===== */
+.f0{color:var(--marinho);font-weight:600}
+.f1{color:var(--azul);font-weight:600}
+.f2{color:var(--laranja-texto);font-weight:600}
+.f3{color:#9a3412;font-weight:700}
+.cons td.sem{background:var(--laranja-tint);color:var(--laranja-texto)}
+.cons td.fora{color:#b6c2ce}
+.cons td.mt{box-shadow:inset 2px 0 0 var(--marinho)}
+.cons th.mt{background:var(--azul)}
+.bloco.largo{min-width:1240px}
+</style>
+</head>
+<body>
+
+<header class="header-exec">
+  <div class="header-inner">
+    <div class="header-linha">
+      <span class="header-badge">Águas do Rio · Arrecadação</span>
+      <h1>Termos aplicados em 2026 e adimplência</h1>
+      <span class="versao" id="versao" title="Versão do painel">v1.1</span>
+      <p class="status" id="status">Nenhuma base carregada</p>
+    </div>
+    <div class="acoes">
+      <button class="btn-top primary" id="btnFolder" type="button">📁 Conectar pasta</button>
+      <button class="btn-top" id="btnUpdate" type="button" hidden>↻ Atualizar</button>
+      <button class="btn-top" id="btnFiles" type="button">📄 Carregar arquivos</button>
+      <span class="fonte" id="fonte">Nenhuma pasta conectada.</span>
+      <button class="btn-top quiet" id="btnClear" type="button" hidden style="margin-left:auto">Apagar dados do navegador</button>
+      <input type="file" id="inFiles" accept=".xlsx,.csv" multiple hidden>
+      <input type="file" id="inFolder" webkitdirectory multiple hidden>
+    </div>
+    <div class="progresso" id="progresso" hidden role="status" aria-live="polite">
+      <div class="prog-linha"><div class="barra"><div class="barra-fill" id="barraFill"></div></div><b id="statusPct">0%</b><span id="statusTexto">Preparando…</span></div>
+      <p class="nota" id="statusNota"></p>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar" id="toolbar" hidden>
+  <div class="toggle" role="group" aria-label="Visão">
+    <button type="button" class="active" data-tab="resumo" aria-pressed="true">Resumo</button>
+    <button type="button" data-tab="cons" aria-pressed="false">Consolidado</button>
+  </div>
+  <div class="filtros">
+    <div class="filtro-wrap" id="fMes"></div>
+    <div class="filtro-wrap" id="fZona"></div>
+    <div class="filtro-wrap" id="fUtil"></div>
+    <div class="filtro-wrap" id="fTipo"></div>
+    <span id="fExtras" style="display:contents"></span>
+  </div>
+</div>
+
+<main>
+  <section class="inicio" id="empty">
+    <h2>Carregue a base para começar</h2>
+    <p>O painel lê os arquivos .xlsx e .csv direto do seu computador. Nada é enviado para a internet: os dados ficam guardados só neste navegador até você carregar uma base nova.</p>
+    <ol>
+      <li>Clique em 📁 Conectar pasta e escolha a pasta com as subpastas de arrecadação (acumulada e diária) e a base de termos. Nas próximas vezes, é só clicar em ↻ Atualizar.</li>
+      <li>A base de termos é o arquivo com “termo” no nome. Ela precisa ter o número da ligação e a data do termo.</li>
+      <li>Os arquivos de arrecadação precisam ter Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.</li>
+    </ol>
+    <div class="drop" id="drop">Arraste os arquivos .xlsx e .csv para cá</div>
+  </section>
+
+  <section id="view-resumo" hidden>
+    <div class="kpis-grid" id="kpis"></div>
+
+    <div class="card">
+      <div class="card-topo">
+        <div>
+          <h2>Regra de classificação</h2>
+          <p class="regra" id="regraTxt"></p>
+        </div>
+      </div>
+      <details class="param" id="paramBox">
+        <summary>Ajustar parâmetros</summary>
+        <div class="param-grid">
+          <label class="field">Mês do pagamento
+            <select id="pModo">
+              <option value="ref">Referência da fatura (Mês/Ano)</option>
+              <option value="pag">Data do pagamento</option>
+            </select>
+          </label>
+          <label class="field">Último mês da análise <select id="pUltimo"></select></label>
+          <label class="field">Período depois começa
+            <select id="pInicio">
+              <option value="0">No mês do termo</option>
+              <option value="1">No mês seguinte ao termo</option>
+            </select>
+          </label>
+          <label class="field">Mínimo de meses depois <input type="number" id="pMin" min="1" max="12" step="1"></label>
+        </div>
+        <p class="nota-secao">Quantos meses sem pagar cabem em cada faixa, conforme o número de meses do período. Os 12 meses antes do termo usam a coluna 12. Depois do termo, o período vai até o último mês da análise (no máximo 12 meses), por isso cada cliente usa a coluna da quantidade de meses que teve. Pagou nenhum mês: Nunca pagou. Pagou pelo menos um e passou do limite de Flutuante: Inadimplente.</p>
+        <div class="tabela-wrap"><table class="tab-alinhada faixas" id="tblFaixas"></table></div>
+        <p style="margin:8px 0 0"><button class="btn-just" id="pPadrao" type="button">Restaurar padrão</button></p>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="card-topo">
+        <div>
+          <h2>Faixa antes × faixa depois do termo</h2>
+          <p class="nota-secao" id="matNota"></p>
+        </div>
+      </div>
+      <div class="tabela-wrap" id="tblMatriz"></div>
+      <div class="matriz-leg"><span><i style="background:var(--tint)"></i>melhorou de faixa</span><span><i style="background:var(--laranja-tint)"></i>piorou de faixa</span><span>Clique num número para ver os clientes no Consolidado.</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-topo">
+        <div>
+          <h2>Por mês de aplicação do termo</h2>
+          <p class="nota-secao">Clientes analisados em cada mês de aplicação, separados pelo que aconteceu com a faixa depois do termo. Quanto mais recente o termo, menos meses depois ele tem para medir.</p>
+        </div>
+        <div class="legenda"><span><i style="background:var(--azul)"></i>Melhorou de faixa</span><span><i style="background:var(--existente)"></i>Manteve a faixa</span><span><i style="background:var(--laranja)"></i>Piorou de faixa</span></div>
+      </div>
+      <div class="bloco-rolagem"><div class="bloco" id="blocoMes"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-topo">
+        <div>
+          <h2>Pagamento em relação ao mês do termo</h2>
+          <p class="nota-secao" id="evNota"></p>
+        </div>
+        <div class="toggle" role="group" aria-label="Grupo de clientes">
+          <button type="button" class="active" data-ev="todos" aria-pressed="true">Todos</button>
+          <button type="button" data-ev="ad" aria-pressed="false">Adimplentes antes</button>
+          <button type="button" data-ev="deixou" aria-pressed="false">Deixaram de ser adimplentes</button>
+        </div>
+      </div>
+      <div class="legenda"><span><i style="background:var(--marinho)"></i>Meses antes do termo</span><span><i style="background:var(--azul)"></i>Período depois do termo</span></div>
+      <div class="bloco-rolagem"><div class="bloco largo" id="blocoEv"></div></div>
+    </div>
+
+    <div class="card" id="cardTipo">
+      <h2>Por tipo de termo</h2>
+      <p class="nota-secao">Arrecadação mensal: média por mês dos clientes analisados, nos 12 meses antes e no período depois do termo.</p>
+      <div class="tabela-wrap" id="tblTipo"></div>
+    </div>
+
+    <div class="card">
+      <h2>Por zona (localidade)</h2>
+      <p class="nota-secao">Zona e utilização vêm do pagamento mais recente do cliente na base de arrecadação.</p>
+      <div class="tabela-wrap" id="tblZona"></div>
+    </div>
+
+    <div class="card">
+      <h2>Por utilização (sub-categoria)</h2>
+      <div class="tabela-wrap" id="tblUtil"></div>
+    </div>
+
+    <p class="rodape" id="foot"></p>
+  </section>
+
+  <section id="view-cons" hidden>
+    <div class="card">
+      <div class="cons-bar">
+        <label class="field">Buscar <input type="search" id="cSearch" placeholder="Ligação ou cliente"></label>
+        <label class="field">Faixa antes <select id="cFA"></select></label>
+        <label class="field">Faixa depois <select id="cFD"></select></label>
+        <label class="field">Movimento
+          <select id="cMov">
+            <option value="all">Todos os clientes com termo</option>
+            <option value="deixou">Deixaram de ser adimplentes</option>
+            <option value="parou">Pararam de pagar depois do termo</option>
+            <option value="piorou">Pioraram de faixa</option>
+            <option value="igual">Mantiveram a faixa</option>
+            <option value="melhorou">Melhoraram de faixa</option>
+            <option value="fora">Fora da análise (sem período suficiente)</option>
+          </select>
+        </label>
+        <label class="field">Ordenar
+          <select id="cSort">
+            <option value="lig">Ligação</option>
+            <option value="perda">Maior queda de arrecadação</option>
+            <option value="data">Data do termo</option>
+          </select>
+        </label>
+        <button class="btn-just" id="btnExport" type="button">⬇ Exportar CSV</button>
+      </div>
+      <p class="keyline"><i style="background:var(--laranja-tint)"></i>mês sem pagamento dentro do período analisado<i style="box-shadow:inset 2px 0 0 var(--marinho)"></i>mês do termo<i style="background:#fff;color:#b6c2ce"></i>fora do período (cinza claro)</p>
+      <p class="count" id="cCount"></p>
+      <div class="cons-wrap cons" id="tblCons"></div>
+      <div class="pager">
+        <button class="btn-just" id="pPrev" type="button">Anterior</button>
+        <span id="pInfo"></span>
+        <button class="btn-just" id="pNext" type="button">Próxima</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== Worker: lê os .xlsx e .csv sem travar a tela ===================== -->
+<script type="text/plain" id="worker-src">
+// Nomes de coluna comparados sem acento, maiúsculas e pontuação ("Nº Ligação" vira N_LIGACAO, "Data Pagto." vira DATA_PAGTO)
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+const str = v => v == null ? '' : String(v).trim();
+const LIG = ['N_LIGACAO', 'NO_LIGACAO', 'NUM_LIGACAO', 'NUMERO_LIGACAO', 'NUMERO_DA_LIGACAO', 'LIGACAO', 'MATRICULA', 'N_MATRICULA'];
+const ALIAS_ARR = {
+  N_NOTA: 'nota', NO_NOTA: 'nota', NOTA: 'nota', MES: 'mes', ANO: 'ano', REFERENCIA: 'ref', VALOR_PAGO: 'valor',
+  DATA_PAGTO: 'dpag', DATA_PAGAMENTO: 'dpag', DT_PAGTO: 'dpag',
+  UTILIZACAO_SUB_CATEG: 'util', UTILIZACAO: 'util', SUB_CATEGORIA: 'util', ZONA_LOCALIDADE: 'zona', ZONA: 'zona', LOCALIDADE: 'zona', CIDADE: 'zona',
+  CLIENTE: 'nome', NOM_CLIENTE: 'nome', NOME: 'nome', NOME_CLIENTE: 'nome', SITUACAO_PAGTO: 'sit', SITUACAO_PAGAMENTO: 'sit'
+};
+const ALIAS_TERMO = {
+  DATA_DE_NEGOCIACAO: 'neg', DATA_NEGOCIACAO: 'neg', DATA_DA_NEGOCIACAO: 'neg',
+  DATA_DE_APLICACAO: 'apl', DATA_APLICACAO: 'apl', DATA_DA_APLICACAO: 'apl',
+  DATA_DO_TERMO: 'data', DATA_TERMO: 'data', DT_TERMO: 'data', DATA_EMISSAO: 'data', DATA: 'data', REFERENCIA: 'ref', MES: 'mes', ANO: 'ano',
+  TIPO_DE_ATIVIDADE: 'tipo', TIPO_DE_TERMO: 'tipo', TIPO_DO_TERMO: 'tipo', TIPO_TERMO: 'tipo', TIPO: 'tipo', MOTIVO: 'tipo',
+  VALOR_DO_TERMO: 'valor', VALOR_TERMO: 'valor', VALOR: 'valor',
+  ZONA_LOCALIDADE: 'zona', ZONA: 'zona', LOCALIDADE: 'zona', CIDADE: 'zona', UTILIZACAO_SUB_CATEG: 'util', UTILIZACAO: 'util', SUB_CATEGORIA: 'util',
+  CLIENTE: 'nome', NOM_CLIENTE: 'nome', NOME: 'nome'
+};
+LIG.forEach(k => { ALIAS_ARR[k] = 'mat'; ALIAS_TERMO[k] = 'mat'; });
+// colunas da base de termos que viram filtros no painel
+const EXTRAS = [
+  { k: 'sitT', nome: 'Situação do termo', col: ['SITUACAO_DO_TERMO', 'SITUACAO_TERMO'] },
+  { k: 'fat', nome: 'Faturado', col: ['FATURADO'] },
+  { k: 'ise', nome: 'Isento', col: ['ISENTO'] },
+  { k: 'fre', nome: 'Frente', col: ['FRENTE'] },
+  { k: 'equ', nome: 'Equipe', col: ['EQUIPE'] },
+  { k: 'cat', nome: 'Categoria', col: ['CATEGORIA'] },
+  { k: 'ori', nome: 'Origem', col: ['ORIGEM'] }
+];
+EXTRAS.forEach(x => x.col.forEach(c => { ALIAS_TERMO[c] = 'x_' + x.k; }));
+function toNum(v){
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  let s = String(v).trim().replace(/^R\$\s*/, '');
+  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  const n = Number(s); return isFinite(n) ? n : 0;
+}
+// número da ligação: o mesmo texto em todos os arquivos (sem zeros à esquerda e sem ",0" de número do Excel)
+function ligKey(v){
+  if (v == null || v === '') return '';
+  if (typeof v === 'number') return isFinite(v) ? String(Math.round(v)) : '';
+  const s = String(v).trim();
+  if (/^\d+([.,]0+)?$/.test(s)) return String(parseInt(s, 10));
+  return s;
+}
+// datas: número de série do Excel, dd/mm/aaaa, aaaa-mm-dd, mm/aaaa ou aaaa-mm. Mês absoluto = ano * 12 + mês - 1
+const pad = n => String(n).padStart(2, '0');
+function dataInfo(v){
+  if (v == null || v === '') return null;
+  if (typeof v === 'string' && /^\d{5}(\.\d+)?$/.test(v.trim())) v = +v;
+  if (typeof v === 'number'){
+    if (v < 20000 || v > 80000) return null;
+    const d = new Date(Math.round((v - 25569) * 86400000));
+    return { am: d.getUTCFullYear() * 12 + d.getUTCMonth(), txt: pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() };
+  }
+  const s = String(v).trim(); let m;
+  if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s))) return { am: +m[3] * 12 + +m[2] - 1, txt: pad(m[1]) + '/' + pad(m[2]) + '/' + m[3] };
+  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s))) return { am: +m[1] * 12 + +m[2] - 1, txt: pad(m[3]) + '/' + pad(m[2]) + '/' + m[1] };
+  if ((m = /^(\d{1,2})\/(\d{4})$/.exec(s))) return { am: +m[2] * 12 + +m[1] - 1, txt: pad(m[1]) + '/' + m[2] };
+  if ((m = /^(\d{4})-(\d{1,2})$/.exec(s))) return { am: +m[1] * 12 + +m[2] - 1, txt: pad(m[2]) + '/' + m[1] };
+  return null;
+}
+const MES_TXT = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+// colunas Mês e Ano da arrecadação (referência da fatura): mês em número ou nome; também aceita "03/2025" no Mês
+function mesAno(mes, ano){
+  if (mes == null || mes === '') return -1;
+  let m = typeof mes === 'number' ? mes : NaN;
+  if (isNaN(m)){
+    const s = String(mes).trim();
+    if (/^\d{1,2}$/.test(s)) m = +s;
+    else { const di = dataInfo(s); if (di) return di.am; m = MES_TXT.indexOf(norm(s).slice(0, 3)) + 1; }
+  }
+  let y = Math.round(toNum(ano)); if (y > 0 && y < 100) y += 2000;
+  if (!(m >= 1 && m <= 12) || y < 1990 || y > 2100) return -1;
+  return y * 12 + Math.round(m) - 1;
+}
+function dec(s){
+  if (s.indexOf('&') < 0) return s;
+  return s.replace(/&(amp|lt|gt|quot|apos|#x[0-9a-fA-F]+|#\d+);/g, (x, e) =>
+    e === 'amp' ? '&' : e === 'lt' ? '<' : e === 'gt' ? '>' : e === 'quot' ? '"' : e === 'apos' ? "'" :
+    e[1] === 'x' ? String.fromCodePoint(parseInt(e.slice(2), 16)) : String.fromCodePoint(+e.slice(1)));
+}
+function texts(xml){
+  xml = xml.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '');
+  let out = '', m; const re = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
+  while ((m = re.exec(xml))) out += m[1];
+  return dec(out);
+}
+function colIdx(letters){ let n = 0; for (let i = 0; i < letters.length; i++) n = n * 26 + (letters.charCodeAt(i) - 64); return n - 1; }
+
+/* ---------- leitura do zip (.xlsx) por partes ---------- */
+async function readZip(file){
+  const tailLen = Math.min(file.size, 65557 + 22);
+  const tail = new DataView(await file.slice(file.size - tailLen).arrayBuffer());
+  let eocd = -1;
+  for (let i = tailLen - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  if (eocd < 0) throw new Error(file.name + ' não parece ser um arquivo .xlsx válido.');
+  let n = tail.getUint16(eocd + 10, true), cdSize = tail.getUint32(eocd + 12, true), cdOff = tail.getUint32(eocd + 16, true);
+  if ((cdOff === 0xFFFFFFFF || n === 0xFFFF) && eocd >= 20 && tail.getUint32(eocd - 20, true) === 0x07064b50){
+    const z64off = Number(tail.getBigUint64(eocd - 12, true));
+    const z = new DataView(await file.slice(z64off, z64off + 56).arrayBuffer());
+    n = Number(z.getBigUint64(32, true)); cdSize = Number(z.getBigUint64(40, true)); cdOff = Number(z.getBigUint64(48, true));
+  }
+  const cd = new DataView(await file.slice(cdOff, cdOff + cdSize).arrayBuffer());
+  const td = new TextDecoder();
+  const entries = []; let p = 0;
+  while (p + 46 <= cd.byteLength && cd.getUint32(p, true) === 0x02014b50){
+    const method = cd.getUint16(p + 10, true);
+    let csize = cd.getUint32(p + 20, true), usize = cd.getUint32(p + 24, true);
+    const nl = cd.getUint16(p + 28, true), xl = cd.getUint16(p + 30, true), cl = cd.getUint16(p + 32, true);
+    let off = cd.getUint32(p + 42, true);
+    const name = td.decode(new Uint8Array(cd.buffer, cd.byteOffset + p + 46, nl));
+    let q = p + 46 + nl; const xend = q + xl;
+    while (q + 4 <= xend){
+      const id = cd.getUint16(q, true), sz = cd.getUint16(q + 2, true); let r = q + 4;
+      if (id === 0x0001){
+        if (usize === 0xFFFFFFFF){ usize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (csize === 0xFFFFFFFF){ csize = Number(cd.getBigUint64(r, true)); r += 8; }
+        if (off === 0xFFFFFFFF){ off = Number(cd.getBigUint64(r, true)); r += 8; }
+      }
+      q += 4 + sz;
+    }
+    entries.push({ name, method, csize, usize, off });
+    p = xend + cl;
+  }
+  return entries;
+}
+async function entryStream(file, e){
+  const lh = new DataView(await file.slice(e.off, e.off + 30).arrayBuffer());
+  const start = e.off + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+  let s = file.slice(start, start + e.csize).stream();
+  if (e.method === 8) s = s.pipeThrough(new DecompressionStream('deflate-raw'));
+  else if (e.method !== 0) throw new Error('Compressão não suportada em ' + e.name);
+  return s.pipeThrough(new TextDecoderStream());
+}
+async function entryText(file, e){
+  const r = (await entryStream(file, e)).getReader(); let out = '';
+  for (;;){ const { value, done } = await r.read(); if (done) break; out += value; }
+  return out;
+}
+async function streamBlocks(file, e, closeTag, onBlock, onProgress){
+  const reader = (await entryStream(file, e)).getReader();
+  let buf = '', seen = 0;
+  for (;;){
+    const { value, done } = await reader.read();
+    if (done) break;
+    seen += value.length; buf += value;
+    let pos = 0, idx;
+    while ((idx = buf.indexOf(closeTag, pos)) !== -1){
+      const blk = buf.slice(pos, idx); pos = idx + closeTag.length;
+      if (onBlock(blk) === false){ try { await reader.cancel(); } catch (_) {} return; }
+    }
+    buf = buf.slice(pos);
+    if (onProgress) onProgress(Math.min(1, seen / Math.max(1, e.usize)));
+  }
+}
+
+const RE_C = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+const RE_R = /\br="([A-Z]+)/, RE_T = /\bt="([^"]+)"/, RE_V = /<v>([\s\S]*?)<\/v>/;
+function parseCells(blk, sst){
+  const out = []; let m, seq = 0; RE_C.lastIndex = 0;
+  while ((m = RE_C.exec(blk))){
+    const a = m[1], inner = m[2];
+    const rm = RE_R.exec(a); const col = rm ? colIdx(rm[1]) : seq; seq = col + 1;
+    if (inner === undefined) continue;
+    const tm = RE_T.exec(a); const t = tm ? tm[1] : 'n';
+    let v;
+    if (t === 'inlineStr') v = texts(inner);
+    else {
+      const vm = RE_V.exec(inner); if (!vm) continue;
+      const raw = vm[1];
+      if (t === 's') v = sst[+raw];
+      else if (t === 'str' || t === 'e') v = dec(raw);
+      else if (t === 'b') v = raw === '1' ? 'VERDADEIRO' : 'FALSO';
+      else v = +raw;
+    }
+    out[col] = v;
+  }
+  return out;
+}
+
+/* ---------- acumuladores ---------- */
+class G {
+  constructor(T, n){ this.T = T; this.a = new T(n || 65536); this.n = 0; }
+  push(x){ if (this.n === this.a.length){ const b = new this.T(this.a.length * 2); b.set(this.a); this.a = b; } this.a[this.n++] = x; }
+  out(){ return this.a.slice(0, this.n); }
+}
+class Dict {
+  constructor(){ this.m = new Map(); this.list = []; }
+  id(s){ let i = this.m.get(s); if (i === undefined){ i = this.list.length; this.m.set(s, i); this.list.push(s); } return i; }
+}
+async function sheetList(file, byName){
+  const wb = byName.get('xl/workbook.xml'), rel = byName.get('xl/_rels/workbook.xml.rels');
+  const out = [];
+  if (wb && rel){
+    const wx = await entryText(file, wb), rx = await entryText(file, rel);
+    const targets = {};
+    for (const m of rx.matchAll(/<Relationship\b[^>]*>/g)){
+      const id = /\bId="([^"]+)"/.exec(m[0]), tg = /\bTarget="([^"]+)"/.exec(m[0]);
+      if (id && tg) targets[id[1]] = tg[1];
+    }
+    for (const m of wx.matchAll(/<sheet\b[^>]*>/g)){
+      const nm = /\bname="([^"]*)"/.exec(m[0]), id = /\br:id="([^"]+)"/.exec(m[0]);
+      if (!nm || !id || !targets[id[1]]) continue;
+      let t = targets[id[1]];
+      t = t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
+      if (byName.has(t)) out.push({ name: dec(nm[1]), entry: byName.get(t) });
+    }
+  }
+  if (!out.length) for (const [k, e] of byName) if (/^xl\/worksheets\/sheet\d+\.xml$/.test(k)) out.push({ name: k.split('/').pop(), entry: e });
+  return out;
+}
+
+/* ---------- leitura de .csv em fluxo (separador e codificação detectados) ---------- */
+function splitCsv(line, sep){
+  if (line.indexOf('"') < 0) return line.split(sep);
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++){
+    const ch = line[i];
+    if (q){ if (ch === '"'){ if (line[i + 1] === '"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep){ out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur); return out;
+}
+async function streamCsv(file, onRow, onProgress){
+  const head = new Uint8Array(await file.slice(0, 65536).arrayBuffer());
+  let enc = 'utf-8';
+  try { new TextDecoder('utf-8', { fatal: true }).decode(head, { stream: true }); } catch (_) { enc = 'windows-1252'; }
+  const reader = file.stream().pipeThrough(new TextDecoderStream(enc)).getReader();
+  let buf = '', seen = 0, sep = null, first = true;
+  const linha = l => {
+    if (first){ l = l.replace(/^﻿/, ''); first = false; }
+    if (l.endsWith('\r')) l = l.slice(0, -1);
+    if (!l.trim()) return true;
+    if (!sep){ const n = c => l.split(c).length; sep = [';', '\t', ','].sort((a, b) => n(b) - n(a))[0]; }
+    return onRow(splitCsv(l, sep));
+  };
+  for (;;){
+    const { value, done } = await reader.read();
+    if (done) break;
+    seen += value.length; buf += value;
+    let pos = 0, idx;
+    while ((idx = buf.indexOf('\n', pos)) !== -1){
+      const l = buf.slice(pos, idx); pos = idx + 1;
+      if (linha(l) === false){ try { await reader.cancel(); } catch (_) {} return; }
+    }
+    buf = buf.slice(pos);
+    if (onProgress) onProgress(Math.min(1, seen / Math.max(1, file.size)));
+  }
+  if (buf) linha(buf);
+}
+// percorre as linhas de cada aba (.xlsx) ou do arquivo (.csv): onTabela(nome) devolve o tratador de linhas da tabela.
+// escolhe(abas) pode limitar as abas lidas
+async function percorre(file, onTabela, onProgress, escolhe){
+  if (/\.csv$/i.test(file.name)){
+    const t = onTabela(file.name);
+    await streamCsv(file, c => t.linha(c), onProgress); t.fim(); return;
+  }
+  const entries = await readZip(file);
+  const byName = new Map(entries.map(e => [e.name, e]));
+  const sst = [];
+  const se = byName.get('xl/sharedStrings.xml');
+  if (se) await streamBlocks(file, se, '</si>', blk => { sst.push(texts(blk.slice(blk.indexOf('<si')))); }, p => onProgress(p, 'Lendo os textos do arquivo…'));
+  let abas = await sheetList(file, byName);
+  if (escolhe) abas = escolhe(abas);
+  for (const sh of abas){
+    const t = onTabela(sh.name);
+    await streamBlocks(file, sh.entry, '</row>', blk => t.linha(parseCells(blk, sst)), onProgress);
+    t.fim();
+  }
+}
+// tratador de uma tabela: acha o cabeçalho (linha com o número da ligação, nas primeiras 30) e repassa as linhas
+function tabela(alias, onLinha, onFim){
+  let h = null, vistas = 0;
+  return {
+    linha(c){
+      if (h) return onLinha(c, h);
+      vistas++;
+      const nomes = c.map(norm);
+      if (nomes.some(n => LIG.includes(n))){
+        h = { nomes, orig: c.map(str) };
+        nomes.forEach((n, i) => { const k = alias[n]; if (k && h[k] === undefined) h[k] = i; });
+        return;
+      }
+      if (vistas > 30) return false;
+    },
+    fim(){ onFim(h); }
+  };
+}
+
+/* ---------- base de termos ---------- */
+const TERMO_RE = /termo/i;
+const ANO_TERMO = 2026;
+class Termos {
+  constructor(){
+    this.m = new Map();
+    this.st = { linhas: 0, foraAno: 0, semData: 0, semNeg: 0, repetidos: 0, arquivos: [], semColunaData: [], colData: '' };
+  }
+  // aba Termos, quando existir; senão todas, menos a de resumo
+  static abas(lista){
+    const t = lista.filter(a => norm(a.name) === 'TERMOS');
+    return t.length ? t : lista.filter(a => norm(a.name) !== 'RESUMO');
+  }
+  add(c, h){
+    const mk = ligKey(c[h.mat]); if (!mk) return;
+    this.st.linhas++;
+    // mês do termo: Data de negociação (definido pelo usuário). Sem negociação, vale a Data de aplicação
+    let di = h.neg !== undefined ? dataInfo(c[h.neg]) : null;
+    if (!di && h.neg !== undefined && (h.apl !== undefined || h.data !== undefined)){
+      di = dataInfo(c[h.apl !== undefined ? h.apl : h.data]);
+      if (di) this.st.semNeg++;
+    }
+    if (!di && h.neg === undefined && h.data !== undefined) di = dataInfo(c[h.data]);
+    if (!di && h.neg === undefined && h.apl !== undefined) di = dataInfo(c[h.apl]);
+    if (!di && h.ref !== undefined) di = dataInfo(c[h.ref]);
+    if (!di && h.mes !== undefined){ const a = mesAno(c[h.mes], c[h.ano]); if (a >= 0) di = { am: a, txt: pad(a % 12 + 1) + '/' + Math.floor(a / 12) }; }
+    if (!di){ this.st.semData++; return; }
+    if (Math.floor(di.am / 12) !== ANO_TERMO){ this.st.foraAno++; return; }
+    const v = { am: di.am, txt: di.txt, tipo: h.tipo !== undefined ? str(c[h.tipo]) : '', valor: h.valor !== undefined ? toNum(c[h.valor]) : 0,
+      zona: h.zona !== undefined ? str(c[h.zona]) : '', util: h.util !== undefined ? str(c[h.util]) : '', nome: h.nome !== undefined ? str(c[h.nome]) : '', qtd: 1,
+      x: EXTRAS.map(x => h['x_' + x.k] !== undefined ? str(c[h['x_' + x.k]]) : '') };
+    const o = this.m.get(mk);
+    if (!o){ this.m.set(mk, v); return; }
+    // mais de um termo no ano: vale o primeiro, e a quantidade fica registrada
+    this.st.repetidos++;
+    v.qtd = o.qtd + 1;
+    if (v.am < o.am || (v.am === o.am && ordData(v.txt) < ordData(o.txt))) this.m.set(mk, v); else o.qtd = v.qtd;
+  }
+  // colunas que não vieram com nome conhecido: a primeira com "DATA", "TIPO" ou "VALOR" no nome
+  completa(h){
+    const acha = re => h.nomes.findIndex(n => re.test(n));
+    if (h.neg === undefined && h.apl === undefined && h.data === undefined && h.ref === undefined && h.mes === undefined){ const i = acha(/DATA|^DT_/); if (i >= 0) h.data = i; }
+    const col = ['neg', 'apl', 'data', 'ref', 'mes'].find(k => h[k] !== undefined);
+    this.st.colData = col ? h.orig[h[col]] : '';
+    if (h.tipo === undefined){ const i = acha(/TIPO/); if (i >= 0) h.tipo = i; }
+    if (h.valor === undefined){ const i = acha(/VALOR/); if (i >= 0) h.valor = i; }
+  }
+}
+const ordData = t => t.split('/').reverse().join('');
+
+/* ---------- base de arrecadação: só guarda os pagamentos dos clientes com termo ---------- */
+class Arrecadacao {
+  constructor(termos){
+    this.idx = new Map(); this.mats = [];
+    for (const k of termos.keys()){ this.idx.set(k, this.mats.length); this.mats.push(k); }
+    const n = this.mats.length;
+    this.nome = new Array(n).fill(''); this.zona = new Int32Array(n).fill(-1); this.util = new Int32Array(n).fill(-1); this.ult = new Int32Array(n).fill(-1);
+    this.d = { zona: new Dict(), util: new Dict(), tipo: new Dict() };
+    EXTRAS.forEach(x => { this.d[x.k] = new Dict(); });
+    this.rMat = new G(Int32Array); this.rRef = new G(Int32Array); this.rPag = new G(Int32Array); this.rVal = new G(Float64Array);
+    this.vistos = new Set();
+    this.minPag = Infinity; this.maxPag = -Infinity; this.minRef = Infinity; this.maxRef = -Infinity; this.ultData = '';
+    this.st = { linhas: 0, linhasTermo: 0, repetidas: 0, valorZero: 0, semMes: 0, semLig: 0, sit: new Map(), porMes: new Map(), abas: [], ignoradas: [] };
+  }
+  add(c, h){
+    const mk = ligKey(c[h.mat]); if (!mk){ this.st.semLig++; return; }
+    const ref = h.mes !== undefined ? mesAno(c[h.mes], c[h.ano]) : h.ref !== undefined ? (dataInfo(c[h.ref]) || { am: -1 }).am : -1;
+    const dp = h.dpag !== undefined ? dataInfo(c[h.dpag]) : null;
+    const pag = dp ? dp.am : -1;
+    if (ref < 0 && pag < 0){ this.st.semMes++; return; }
+    this.st.linhas++;
+    const s = h.sit !== undefined ? str(c[h.sit]) : '';
+    this.st.sit.set(s, (this.st.sit.get(s) || 0) + 1);
+    if (pag >= 0){
+      if (pag < this.minPag) this.minPag = pag;
+      if (pag > this.maxPag){ this.maxPag = pag; this.ultData = dp.txt; }
+      else if (pag === this.maxPag && ordData(dp.txt) > ordData(this.ultData)) this.ultData = dp.txt;
+      this.st.porMes.set(pag, (this.st.porMes.get(pag) || 0) + 1);
+    }
+    if (ref >= 0){ if (ref < this.minRef) this.minRef = ref; if (ref > this.maxRef) this.maxRef = ref; }
+    const mi = this.idx.get(mk); if (mi === undefined) return;
+    const valor = toNum(c[h.valor]);
+    // o mesmo pagamento pode estar na pasta acumulada e na diária: entra uma vez só
+    const chave = mi + '|' + (h.nota !== undefined ? str(c[h.nota]) : '') + '|' + ref + '|' + (dp ? dp.txt : '') + '|' + valor;
+    if (this.vistos.has(chave)){ this.st.repetidas++; return; }
+    this.vistos.add(chave);
+    this.st.linhasTermo++;
+    if (!(valor > 0)){ this.st.valorZero++; return; }
+    const ord = pag >= 0 ? pag : ref;
+    if (ord >= this.ult[mi]){
+      this.ult[mi] = ord;
+      if (h.nome !== undefined && str(c[h.nome])) this.nome[mi] = str(c[h.nome]);
+      if (h.zona !== undefined) this.zona[mi] = this.d.zona.id(str(c[h.zona]));
+      if (h.util !== undefined) this.util[mi] = this.d.util.id(str(c[h.util]));
+    }
+    this.rMat.push(mi); this.rRef.push(ref); this.rPag.push(pag); this.rVal.push(valor);
+  }
+  build(termos){
+    // eixo de meses: o período dos pagamentos (Data Pagto.); sem essa coluna, o das referências
+    const temPag = this.maxPag >= 0;
+    const am0 = temPag ? this.minPag : this.minRef, am1 = temPag ? this.maxPag : this.maxRef;
+    const nR = am1 - am0 + 1, nM = this.mats.length;
+    const valRef = new Float64Array(nM * nR), valPag = new Float64Array(nM * nR), temArr = new Uint8Array(nM);
+    let refFora = 0;
+    for (let i = 0, n = this.rMat.n; i < n; i++){
+      const m = this.rMat.a[i], v = this.rVal.a[i], rf = this.rRef.a[i], pg = this.rPag.a[i];
+      temArr[m] = 1;
+      if (rf >= am0 && rf <= am1) valRef[m * nR + rf - am0] += v; else refFora++;
+      const p = pg >= 0 ? pg : rf;
+      if (p >= am0 && p <= am1) valPag[m * nR + p - am0] += v;
+    }
+    const tAm = new Int32Array(nM), tValor = new Float64Array(nM), tQtd = new Uint8Array(nM), tipo = new Uint16Array(nM), zona = new Uint16Array(nM), util = new Uint16Array(nM);
+    const tData = [], nomes = [], extra = {};
+    EXTRAS.forEach(x => { extra[x.k] = new Uint16Array(nM); });
+    this.mats.forEach((k, m) => {
+      const t = termos.get(k);
+      EXTRAS.forEach((x, i) => { extra[x.k][m] = this.d[x.k].id(t.x[i] || '(vazio)'); });
+      tAm[m] = t.am; tData.push(t.txt); tValor[m] = t.valor; tQtd[m] = Math.min(255, t.qtd); tipo[m] = this.d.tipo.id(t.tipo || '(sem tipo)');
+      nomes.push(this.nome[m] || t.nome);
+      // sem pagamento na base, zona e utilização vêm da base de termos, se ela tiver
+      zona[m] = this.zona[m] >= 0 ? this.zona[m] : this.d.zona.id(t.zona || '(sem arrecadação)');
+      util[m] = this.util[m] >= 0 ? this.util[m] : this.d.util.id(t.util || '(sem arrecadação)');
+    });
+    const st = this.st;
+    return {
+      am0, nR, temPag, ultData: this.ultData, mats: this.mats, nomes, tAm, tData, tValor, tQtd, tipo, zona, util, temArr, valRef, valPag,
+      extra, extraNomes: EXTRAS.map(x => ({ k: x.k, nome: x.nome, lista: this.d[x.k].list })),
+      dict: { zona: this.d.zona.list, util: this.d.util.list, tipo: this.d.tipo.list },
+      stats: { linhas: st.linhas, linhasTermo: st.linhasTermo, repetidas: st.repetidas, valorZero: st.valorZero, semMes: st.semMes, semLig: st.semLig, refFora,
+        sit: [...st.sit.entries()].sort((a, b) => b[1] - a[1]), porMes: [...st.porMes.entries()].sort((a, b) => a[0] - b[0]), abas: st.abas, ignoradas: st.ignoradas }
+    };
+  }
+}
+
+/* ---------- processamento ---------- */
+let lastPost = 0;
+function progress(title, msg, pct, force){
+  const now = Date.now();
+  if (!force && now - lastPost < 200) return;
+  lastPost = now; self.postMessage({ type: 'progress', title, msg, pct });
+}
+async function processFiles(files){
+  const nomeArq = f => f.webkitRelativePath || f.name;
+  // a base de termos vem primeiro: a arrecadação só guarda os pagamentos de quem recebeu termo
+  const ehTermo = f => TERMO_RE.test(f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  const fT = files.filter(ehTermo), fA = files.filter(f => !ehTermo(f));
+  if (!fT.length) throw new Error('A base de termos não foi encontrada. Coloque na pasta um arquivo com “termo” no nome (por exemplo, “Termos aplicados 2026.xlsx”).');
+  const T = new Termos();
+  for (const file of fT){
+    progress('Base de termos: ' + file.name, 'Lendo os termos…', 0, true);
+    await percorre(file, aba => tabela(ALIAS_TERMO, (c, h) => { if (!h.ok){ T.completa(h); h.ok = true; } T.add(c, h); },
+      h => { if (h) T.st.arquivos.push(file.name + (aba !== file.name ? ' / ' + aba : '')); if (h && !T.st.colData) T.st.semColunaData.push(file.name); }),
+      p => progress('Base de termos: ' + file.name, 'Lendo os termos…', p), Termos.abas);
+  }
+  if (!T.m.size) throw new Error(T.st.linhas ? `A base de termos tem ${T.st.linhas} linhas, mas nenhuma com data de ${ANO_TERMO}. Confira a coluna com a data do termo.` : 'A base de termos não tem a coluna com o número da ligação (Nº Ligação ou Matrícula).');
+  const A = new Arrecadacao(T.m);
+  for (let fi = 0; fi < fA.length; fi++){
+    const file = fA[fi];
+    const label = `Arrecadação ${fi + 1} de ${fA.length}: ${nomeArq(file)}`;
+    progress(label, 'Abrindo o arquivo…', 0, true);
+    await percorre(file, aba => {
+      const antes = A.st.linhas;
+      return tabela(ALIAS_ARR, (c, h) => A.add(c, h), h => {
+        if (h && h.valor !== undefined) A.st.abas.push({ arquivo: nomeArq(file), aba, linhas: A.st.linhas - antes });
+        else A.st.ignoradas.push(nomeArq(file) + (aba !== file.name ? ' / ' + aba : ''));
+      });
+    }, (p, msg) => progress(label, msg || `${A.st.linhas.toLocaleString('pt-BR')} pagamentos lidos no total`, p));
+  }
+  if (!A.st.linhas) throw new Error('Nenhum pagamento encontrado. Confira se os arquivos de arrecadação têm as colunas Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.');
+  progress('Montando o consolidado', 'Organizando os pagamentos por cliente e mês…', 1, true);
+  const d = A.build(T.m);
+  d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, semNeg: T.st.semNeg, repetidos: T.st.repetidos, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData, colData: T.st.colData };
+  return d;
+}
+self.onmessage = async ev => {
+  try {
+    const d = await processFiles(ev.data.files);
+    const tr = [d.tAm, d.tValor, d.tQtd, d.tipo, d.zona, d.util, d.temArr, d.valRef, d.valPag, ...Object.values(d.extra)].map(a => a.buffer);
+    self.postMessage({ type: 'done', data: d }, tr);
+  } catch (err){
+    self.postMessage({ type: 'error', message: err && err.message ? err.message : String(err) });
+  }
+};
+</script>
+
+<!-- ===================== Painel ===================== -->
+<script>
+(() => {
+'use strict';
+// Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
+const VERSAO_SITE = '1.1';
+const $ = s => document.querySelector(s);
+$('#versao').textContent = 'v' + VERSAO_SITE;
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const amLabel = a => MESES[a % 12] + '/' + String(Math.floor(a / 12)).slice(2);
+const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const brl0 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pct = v => v == null || !isFinite(v) ? '–' : nf1.format(v * 100) + '%';
+const pctSig = v => v == null || !isFinite(v) ? '–' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + nf1.format(Math.abs(v) * 100) + '%';
+const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+const plural = (n, um, varios) => nf0.format(n) + ' ' + (n === 1 ? um : varios);
+
+const FAIXAS = ['Adimplente', 'Flutuante', 'Inadimplente', 'Nunca pagou'];
+const MOV = ['Manteve a faixa', 'Piorou', 'Melhorou'];
+
+let D = null;
+const st = { mesSel: null, zonaSel: null, utilSel: null, tipoSel: null, xSel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', sort: {} };
+
+/* ---------- parâmetros (guardados neste navegador) ---------- */
+// Faixa pela quantidade de meses sem pagar no período. Nos 12 meses antes do termo (regra definida pelo usuário):
+// até 2 sem pagar = Adimplente, até 6 = Flutuante, pagou de 1 a 5 = Inadimplente, nenhum = Nunca pagou.
+// Para períodos menores (depois do termo), o padrão é proporcional e cada limite pode ser ajustado.
+const faixaPadrao = n => ({ ad: Math.round(n * 2 / 12), fl: Math.round(n * 6 / 12) });
+const paramPadrao = () => ({ modo: 'ref', ultimo: null, inicio: 0, min: 1, faixas: Array.from({ length: 12 }, (_, i) => faixaPadrao(i + 1)) });
+let P = paramPadrao();
+try {
+  const s = JSON.parse(localStorage.getItem('painel-termos-param') || 'null');
+  if (s && Array.isArray(s.faixas) && s.faixas.length === 12) P = Object.assign(paramPadrao(), s);
+} catch (_) {}
+const salvaParam = () => { try { localStorage.setItem('painel-termos-param', JSON.stringify(P)); } catch (_) {} };
+
+function classe(pagos, n){
+  if (n <= 0) return -1;
+  if (pagos === 0) return 3;
+  const sem = n - pagos, f = P.faixas[Math.min(n, 12) - 1];
+  return sem <= f.ad ? 0 : sem <= f.fl ? 1 : 2;
+}
+// índice do último mês da análise no eixo de meses. Padrão: o mês mais recente da base, menos o mês atual incompleto
+function ultimoPadrao(){
+  const max = D.am0 + D.nR - 1, c = new Date(D.meta.carregadoEm), atual = c.getFullYear() * 12 + c.getMonth();
+  return max >= atual && D.nR > 1 ? max - 1 : max;
+}
+const idxUltimo = () => { const u = P.ultimo != null && P.ultimo >= D.am0 && P.ultimo < D.am0 + D.nR ? P.ultimo : ultimoPadrao(); return u - D.am0; };
+
+/* ---------- utilidades de interface ---------- */
+function toast(msg){
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; t.setAttribute('role', 'status');
+  document.body.appendChild(t); setTimeout(() => t.remove(), 4500);
+}
+let rodando = false;
+function prog(show, title, msg, pc){
+  const p = $('#progresso');
+  p.hidden = !show; if (!show) return;
+  p.classList.remove('erro');
+  if (title != null) $('#statusTexto').textContent = title;
+  if (msg != null) $('#statusNota').textContent = msg;
+  if (pc != null){ const v = Math.round(Math.max(0, Math.min(1, pc)) * 100); $('#barraFill').style.width = v + '%'; $('#statusPct').textContent = v + '%'; }
+}
+function progErro(msg, detalhe){
+  const p = $('#progresso'); p.hidden = false; p.classList.add('erro');
+  $('#statusTexto').textContent = msg; $('#statusNota').textContent = detalhe || '';
+  bloqueia(false);
+}
+function bloqueia(sim){
+  rodando = sim;
+  ['#btnFolder', '#btnUpdate', '#btnFiles', '#btnClear', '#btnExport'].forEach(id => { const b = $(id); if (b) b.disabled = sim; });
+}
+
+/* ---------- armazenamento no navegador ---------- */
+function idb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('painel-termos-2026', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('dados');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function idbDo(mode, fn){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const t = db.transaction('dados', mode); const req = fn(t.objectStore('dados'));
+    t.oncomplete = () => res(req && req.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+  });
+}
+const idbSave = v => idbDo('readwrite', s => s.put(v, 'atual'));
+const idbLoad = () => idbDo('readonly', s => s.get('atual'));
+const idbClear = () => idbDo('readwrite', s => { s.delete('pasta'); return s.delete('atual'); });
+const idbSavePasta = h => idbDo('readwrite', s => s.put(h, 'pasta'));
+const idbLoadPasta = () => idbDo('readonly', s => s.get('pasta'));
+
+/* ---------- carregamento ---------- */
+const ehDado = n => /\.(xlsx|csv)$/i.test(n) && !n.startsWith('~$');
+function loadFiles(list, fonte){
+  if (rodando) return;
+  const files = [...list].filter(f => ehDado(f.name));
+  if (!files.length){ progErro('Nenhum arquivo .xlsx ou .csv encontrado.', 'Confira se a pasta tem a base de arrecadação e a base de termos.'); return; }
+  files.sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name));
+  let worker;
+  try {
+    const src = $('#worker-src').textContent;
+    worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+  } catch (e){ progErro('O navegador bloqueou o processamento.', 'Use o Chrome ou o Edge atualizados.'); return; }
+  bloqueia(true);
+  prog(true, 'Lendo a base', 'Preparando…', 0);
+  worker.onmessage = async ev => {
+    const m = ev.data;
+    if (m.type === 'progress') prog(true, m.title, m.msg, m.pct);
+    else if (m.type === 'error'){ worker.terminate(); progErro('Não foi possível ler a base.', m.message); }
+    else if (m.type === 'done'){
+      worker.terminate();
+      const d = m.data;
+      d.meta = { arquivos: files.map(f => f.webkitRelativePath || f.name), carregadoEm: new Date().toISOString(), fonte: fonte || (files.length > 1 ? files.length + ' arquivos' : files[0].name) };
+      prog(true, 'Guardando no navegador', 'Assim a base abre direto na próxima vez.', 1);
+      try { await idbSave(d); } catch (e){ toast('Os dados não puderam ser guardados no navegador e valem só nesta sessão.'); }
+      prog(false); bloqueia(false);
+      setData(d);
+    }
+  };
+  worker.onerror = e => { progErro('Não foi possível ler os arquivos.', e.message || 'Verifique se são arquivos .xlsx ou .csv válidos.'); };
+  worker.postMessage({ files });
+}
+
+function setData(d){
+  D = d;
+  const n = D.mats.length;
+  const ord = new Int32Array(n); for (let i = 0; i < n; i++) ord[i] = i;
+  const key = D.mats.map(s => { const x = Number(s); return isFinite(x) ? x : Infinity; });
+  D.ordLig = ord.sort((a, b) => key[a] - key[b] || (D.mats[a] < D.mats[b] ? -1 : 1));
+  // meses de aplicação do termo, para o filtro e o gráfico por mês
+  D.tMeses = [...new Set(D.tAm)].sort((a, b) => a - b);
+  const pos = new Map(D.tMeses.map((a, i) => [a, i]));
+  D.tMes = new Uint8Array(n); for (let m = 0; m < n; m++) D.tMes[m] = pos.get(D.tAm[m]);
+  st.mesSel = st.zonaSel = st.utilSel = st.tipoSel = null; st.xSel = {}; st.page = 0;
+  montaFiltro('fMes', 'Mês do termo', D.tMeses.map(amLabel), 'mesSel', true);
+  montaFiltro('fZona', 'Zona', D.dict.zona, 'zonaSel');
+  montaFiltro('fUtil', 'Utilização', D.dict.util, 'utilSel');
+  const temTipo = !(D.dict.tipo.length === 1 && D.dict.tipo[0] === '(sem tipo)');
+  $('#fTipo').hidden = !temTipo; $('#cardTipo').hidden = !temTipo;
+  if (temTipo) montaFiltro('fTipo', 'Tipo de termo', D.dict.tipo, 'tipoSel');
+  // filtros das colunas da base de termos (Situação do termo, Faturado, Isento, Frente, Equipe, Categoria, Origem);
+  // a coluna que não existe no arquivo não aparece
+  D.extrasUsados = (D.extraNomes || []).filter(x => !(x.lista.length === 1 && x.lista[0] === '(vazio)'));
+  $('#fExtras').innerHTML = D.extrasUsados.map(x => `<div class="filtro-wrap" id="fX_${x.k}"></div>`).join('');
+  D.extrasUsados.forEach(x => montaFiltro('fX_' + x.k, x.nome, x.lista, x.k, false, st.xSel));
+  montaParam();
+  const dt = new Date(D.meta.carregadoEm);
+  $('#status').textContent = `Termos de ${amLabel(D.tMeses[0])} a ${amLabel(D.tMeses[D.tMeses.length - 1])} · pagamentos até ${D.ultData || amLabel(D.am0 + D.nR - 1)} · carregado em ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  $('#empty').hidden = true; $('#toolbar').hidden = false; $('#btnClear').hidden = false;
+  derive();
+  showTab(st.tab);
+}
+
+/* ---------- filtros (lista de seleção, como no painel de economias) ---------- */
+function montaFiltro(id, nome, lista, chave, emOrdem, alvo){
+  alvo = alvo || st;
+  const wrap = $('#' + id);
+  const itens = lista.map((v, i) => [v, i]);
+  if (!emOrdem) itens.sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
+  wrap.innerHTML = `<button class="btn-filtro" type="button" aria-expanded="false">${nome} <span class="badge">Todas</span></button>
+    <div class="painel-filtro"><div class="painel-acoes"><button type="button" class="mini-btn" data-a="todas">Todas</button><button type="button" class="mini-btn" data-a="nenhuma">Nenhuma</button></div>
+    <div class="check-list">${itens.map(([v, i]) => `<label class="check-item"><input type="checkbox" value="${i}" checked> ${esc(v || '(vazio)')}</label>`).join('')}</div></div>`;
+  const btn = wrap.querySelector('.btn-filtro'), painel = wrap.querySelector('.painel-filtro'), badge = wrap.querySelector('.badge');
+  const caixas = [...wrap.querySelectorAll('input')];
+  const aplica = () => {
+    const marcadas = caixas.filter(c => c.checked).map(c => +c.value);
+    alvo[chave] = marcadas.length === caixas.length ? null : new Set(marcadas);
+    badge.textContent = alvo[chave] ? String(marcadas.length) : 'Todas';
+    refresh();
+  };
+  btn.onclick = e => {
+    e.stopPropagation();
+    document.querySelectorAll('.painel-filtro.aberto').forEach(p => { if (p !== painel){ p.classList.remove('aberto'); p.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
+    const ab = painel.classList.toggle('aberto'); btn.setAttribute('aria-expanded', String(ab));
+    // com muitos filtros a barra quebra linha: a lista abre para a direita quando não cabe à esquerda
+    painel.style.left = painel.style.right = '';
+    if (ab && painel.getBoundingClientRect().left < 8){ painel.style.left = '0'; painel.style.right = 'auto'; }
+  };
+  painel.onclick = e => e.stopPropagation();
+  caixas.forEach(c => c.onchange = aplica);
+  wrap.querySelectorAll('.mini-btn').forEach(b => b.onclick = () => { caixas.forEach(c => { c.checked = b.dataset.a === 'todas'; }); aplica(); });
+}
+document.addEventListener('click', () => document.querySelectorAll('.painel-filtro.aberto').forEach(p => { p.classList.remove('aberto'); p.previousElementSibling.setAttribute('aria-expanded', 'false'); }));
+
+function keepMask(){
+  const n = D.mats.length, k = new Uint8Array(n), M = st.mesSel, Z = st.zonaSel, U = st.utilSel, T = st.tipoSel;
+  const X = (D.extrasUsados || []).filter(x => st.xSel[x.k]).map(x => [D.extra[x.k], st.xSel[x.k]]);
+  for (let m = 0; m < n; m++) k[m] = (!M || M.has(D.tMes[m])) && (!Z || Z.has(D.zona[m])) && (!U || U.has(D.util[m])) && (!T || T.has(D.tipo[m])) && X.every(([a, S]) => S.has(a[m])) ? 1 : 0;
+  return k;
+}
+
+/* ---------- classificação de cada cliente ---------- */
+// Antes: os 12 meses anteriores ao mês do termo. Depois: do mês do termo (ou do seguinte) até o último mês da análise,
+// no máximo 12 meses. Um mês conta como pago quando a soma do Valor Pago do mês é maior que zero.
+function derive(){
+  const n = D.mats.length, nR = D.nR, V = P.modo === 'pag' ? D.valPag : D.valRef, L = idxUltimo();
+  D.L = L; D.V = V;
+  D.tI = new Int16Array(n); D.nA = new Uint8Array(n); D.pA = new Uint8Array(n); D.nD = new Uint8Array(n); D.pD = new Uint8Array(n);
+  D.cA = new Int8Array(n); D.cD = new Int8Array(n); D.mA = new Float64Array(n); D.mD = new Float64Array(n); D.mov = new Int8Array(n);
+  for (let m = 0; m < n; m++){
+    const b = m * nR, t = D.tAm[m] - D.am0; D.tI[m] = t;
+    let nA = 0, pA = 0, sA = 0;
+    for (let r = t - 12; r < t; r++){ if (r < 0 || r > L) continue; nA++; const v = V[b + r]; if (v > 0){ pA++; sA += v; } }
+    const s0 = t + P.inicio, e = Math.min(L, s0 + 11);
+    let nD = 0, pD = 0, sD = 0;
+    for (let r = Math.max(0, s0); r <= e; r++){ nD++; const v = V[b + r]; if (v > 0){ pD++; sD += v; } }
+    D.nA[m] = nA; D.pA[m] = pA; D.nD[m] = nD; D.pD[m] = pD;
+    D.mA[m] = nA ? sA / nA : 0; D.mD[m] = nD ? sD / nD : 0;
+    D.cA[m] = classe(pA, nA);
+    D.cD[m] = nD >= Math.max(1, P.min) ? classe(pD, nD) : -1;
+    D.mov[m] = D.cA[m] < 0 || D.cD[m] < 0 ? -1 : D.cD[m] > D.cA[m] ? 1 : D.cD[m] < D.cA[m] ? 2 : 0;
+  }
+}
+const analisado = m => D.mov[m] >= 0;
+const deixou = m => D.cA[m] === 0 && D.cD[m] > 0;
+const parou = m => D.cA[m] >= 0 && D.cA[m] < 3 && D.cD[m] === 3;
+
+// soma por grupo (zona, utilização, tipo, mês do termo ou total)
+function agrega(k, chave, nK){
+  const z = () => new Float64Array(nK);
+  const o = { termos: z(), anal: z(), adA: z(), deixou: z(), parou: z(), pagava: z(), melhorou: z(), piorou: z(), igual: z(), mA: z(), mD: z(), perda: z(), valor: z(), nD: z() };
+  for (let m = 0, n = D.mats.length; m < n; m++){
+    if (!k[m]) continue;
+    const g = chave(m);
+    o.termos[g]++; o.valor[g] += D.tValor[m];
+    if (!analisado(m)) continue;
+    o.anal[g]++; o.mA[g] += D.mA[m]; o.mD[g] += D.mD[m]; o.nD[g] += D.nD[m];
+    if (D.cA[m] === 0) o.adA[g]++;
+    if (deixou(m)){ o.deixou[g]++; o.perda[g] += D.mA[m] - D.mD[m]; }
+    if (D.cA[m] < 3){ o.pagava[g]++; if (D.cD[m] === 3) o.parou[g]++; }
+    if (D.mov[m] === 1) o.piorou[g]++; else if (D.mov[m] === 2) o.melhorou[g]++; else o.igual[g]++;
+  }
+  return o;
+}
+
+/* ---------- gráfico com a tabela alinhada embaixo (mesmo componente do painel de economias) ---------- */
+const GW = 1000, GLBL = 180;   // 18% da largura: a mesma da 1ª coluna da tabela, para as colunas ficarem alinhadas
+function niceTicks(min, max, count){
+  if (min === max){ max = min + 1; }
+  const span = max - min, step0 = span / count, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(x => x * mag).find(x => x >= step0);
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step, t = [];
+  for (let v = lo; v <= hi + step / 2; v += step) t.push(Math.abs(v) < step / 1e6 ? 0 : v);
+  return t;
+}
+function compacto(v){
+  const a = Math.abs(v);
+  if (a >= 1e6) return nf1.format(a / 1e6) + ' mi';
+  if (a >= 1e4) return nf0.format(a / 1e3) + ' mil';
+  return nf0.format(a);
+}
+function graficoAlinhado(labels, series, opts){
+  const n = labels.length, H = opts.h || 250, topo = 28, base = 6, colW = (GW - GLBL) / n;
+  const tot = labels.map((_, i) => series.reduce((a, s) => a + (s.values[i] || 0), 0));
+  const ticks = niceTicks(0, Math.max(opts.min || 1, ...tot), 4), vmax = ticks[ticks.length - 1];
+  const y = v => topo + (vmax - v) / vmax * (H - topo - base);
+  const bw = Math.min(80, colW * .74), eixo = opts.eixo || compacto;
+  let g = '';
+  ticks.forEach(t => {
+    g += `<line x1="${GLBL}" x2="${GW}" y1="${y(t)}" y2="${y(t)}" stroke="${t ? '#e8eef3' : '#c9d6e2'}"/>`;
+    g += `<text x="${GLBL - 12}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="#64748b" font-family="IBM Plex Sans Condensed, Segoe UI, Arial">${eixo(t)}</text>`;
+  });
+  g += `<rect class="realce" x="${GLBL}" y="${topo - 22}" width="${colW}" height="${H - topo + 22 - base}" fill="#e7f0f6" visibility="hidden"/>`;
+  if (opts.marca != null){
+    const xm = GLBL + colW * opts.marca;
+    g += `<line x1="${xm}" x2="${xm}" y1="${topo - 22}" y2="${H - base}" stroke="#102840" stroke-dasharray="3 3"/>`;
+  }
+  labels.forEach((l, i) => {
+    const x = GLBL + colW * i + colW / 2; let acc = 0;
+    const partes = series.filter(s => (s.values[i] || 0) > 0).length;
+    series.forEach(s => {
+      const v = s.values[i] || 0; if (v <= 0) return;
+      const y1 = y(acc + v), h = y(acc) - y1;
+      g += `<rect x="${x - bw / 2}" y="${y1}" width="${bw}" height="${Math.max(1, h)}" fill="${s.cor}"/>`;
+      if (partes > 1 && h >= 17) g += `<text x="${x}" y="${y1 + h / 2 + 4}" text-anchor="middle" font-size="11" font-weight="600" fill="${s.corTexto}" font-family="IBM Plex Sans Condensed, Segoe UI, Arial">${esc(opts.fmtIn(v))}</text>`;
+      acc += v;
+    });
+    if (tot[i] > 0) g += `<text x="${x}" y="${y(tot[i]) - 8}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#102840" font-family="IBM Plex Sans Condensed, Segoe UI, Arial">${esc(opts.fmt(tot[i]))}</text>`;
+  });
+  return `<svg viewBox="0 0 ${GW} ${H}" role="img" aria-label="${esc(opts.aria)}">${g}</svg>`;
+}
+// Dica ao passar o mouse (ou tocar) numa coluna: el.dica = { n, linhas: i => [{ nome, valor, cor?, cls? } | 'sep'], titulo: i => texto }
+const dicaEl = document.createElement('div'); dicaEl.className = 'dica'; dicaEl.hidden = true; dicaEl.setAttribute('role', 'tooltip'); document.body.appendChild(dicaEl);
+function escondeDica(el){
+  dicaEl.hidden = true;
+  const r = el && el.querySelector('.realce'); if (r) r.setAttribute('visibility', 'hidden');
+}
+function ligaDica(el){
+  const move = e => {
+    const svg = el.querySelector('svg'), d = el.dica;
+    if (!svg || !d || !svg.contains(e.target)){ escondeDica(el); return; }
+    const box = svg.getBoundingClientRect(), colW = (GW - GLBL) / d.n;
+    const i = Math.floor(((e.clientX - box.left) / box.width * GW - GLBL) / colW);
+    if (i < 0 || i >= d.n){ escondeDica(el); return; }
+    const r = svg.querySelector('.realce'); r.setAttribute('x', GLBL + colW * i); r.setAttribute('visibility', 'visible');
+    dicaEl.innerHTML = `<b class="mes">${esc(d.titulo(i))}</b>` + d.linhas(i).map(x => x === 'sep' ? '<hr>' :
+      `<div class="lin ${x.cls || ''}"><span>${x.cor ? `<i style="background:${x.cor}"></i>` : ''}${esc(x.nome)}</span><span>${esc(x.valor)}</span></div>`).join('');
+    dicaEl.hidden = false;
+    const w = dicaEl.offsetWidth, h = dicaEl.offsetHeight;
+    let left = e.clientX + 16, top = e.clientY - h / 2;
+    if (left + w > innerWidth - 8) left = e.clientX - w - 16;
+    dicaEl.style.left = Math.max(8, left) + 'px'; dicaEl.style.top = Math.max(8, Math.min(top, innerHeight - h - 8)) + 'px';
+  };
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerdown', move);
+  el.addEventListener('pointerleave', () => escondeDica(el));
+}
+addEventListener('scroll', () => { if (!dicaEl.hidden) document.querySelectorAll('.bloco').forEach(escondeDica); }, { passive: true });
+function tabelaAlinhada(labels, rows){
+  return `<table class="tab-alinhada"><colgroup><col class="rot">${labels.map(() => '<col>').join('')}</colgroup>` +
+    `<thead><tr><th></th>${labels.map(l => `<th>${l}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr class="${r.cls || ''}"><td>${r.cor ? `<i class="cor" style="background:${r.cor}"></i>` : ''}${r.nome}</td>${r.vals.map(v => `<td>${v == null ? '' : r.fmt(v)}</td>`).join('')}</tr>`).join('') +
+    '</tbody></table>';
+}
+
+/* ---------- parâmetros na tela ---------- */
+function montaParam(){
+  $('#pModo').value = P.modo; $('#pInicio').value = String(P.inicio); $('#pMin').value = P.min;
+  const L = idxUltimo(), pad = ultimoPadrao();
+  $('#pUltimo').innerHTML = Array.from({ length: D.nR }, (_, r) => D.am0 + r).reverse()
+    .map(a => `<option value="${a}"${a - D.am0 === L ? ' selected' : ''}>${amLabel(a)}${a === pad ? ' (padrão)' : ''}${a === D.am0 + D.nR - 1 && a !== pad ? ' (incompleto)' : ''}</option>`).join('');
+  const n12 = Array.from({ length: 12 }, (_, i) => i + 1);
+  const cel = (n, k) => `<td class="${n === 12 ? 'antes' : ''}"><input type="number" min="0" max="${n}" step="1" value="${P.faixas[n - 1][k]}" data-n="${n}" data-k="${k}" aria-label="${k === 'ad' ? 'Adimplente' : 'Flutuante'}: meses sem pagar em ${n} meses"></td>`;
+  $('#tblFaixas').innerHTML = `<colgroup><col class="rot">${n12.map(() => '<col>').join('')}</colgroup>
+    <thead><tr><th>Meses no período</th>${n12.map(n => `<th class="${n === 12 ? 'antes' : ''}">${n}${n === 12 ? ' (antes)' : ''}</th>`).join('')}</tr></thead><tbody>
+    <tr><td>Adimplente: até quantos meses sem pagar</td>${n12.map(n => cel(n, 'ad')).join('')}</tr>
+    <tr><td>Flutuante: até quantos meses sem pagar</td>${n12.map(n => cel(n, 'fl')).join('')}</tr>
+    <tr class="mudo"><td>Inadimplente</td><td colspan="12" style="text-align:left">pagou pelo menos 1 mês e ficou acima do limite de Flutuante</td></tr>
+    <tr class="mudo"><td>Nunca pagou</td><td colspan="12" style="text-align:left">nenhum mês pago no período</td></tr></tbody>`;
+}
+function mudaParam(){ salvaParam(); derive(); refresh(); }
+$('#pModo').onchange = e => { P.modo = e.target.value; mudaParam(); };
+$('#pInicio').onchange = e => { P.inicio = +e.target.value; mudaParam(); };
+$('#pUltimo').onchange = e => { const a = +e.target.value; P.ultimo = a === ultimoPadrao() ? null : a; mudaParam(); };
+$('#pMin').onchange = e => { P.min = Math.max(1, Math.min(12, Math.round(+e.target.value) || 1)); e.target.value = P.min; mudaParam(); };
+$('#tblFaixas').addEventListener('change', e => {
+  const i = e.target; if (!i.dataset.n) return;
+  const n = +i.dataset.n, f = P.faixas[n - 1];
+  f[i.dataset.k] = Math.max(0, Math.min(n, Math.round(+i.value) || 0));
+  if (f.fl < f.ad){ if (i.dataset.k === 'ad') f.fl = f.ad; else f.ad = f.fl; }
+  montaParam(); mudaParam();
+});
+$('#pPadrao').onclick = () => { const u = P.ultimo; P = paramPadrao(); P.ultimo = null; void u; montaParam(); mudaParam(); };
+
+/* ---------- Resumo ---------- */
+function kpi(titulo, valor, delta, cls){
+  return `<div class="kpi-card ${cls || ''}"><h3 title="${esc(titulo)}">${esc(titulo)}</h3><p class="kpi-valor">${esc(valor)}</p><p class="kpi-delta" title="${esc(delta)}">${esc(delta)}</p></div>`;
+}
+function renderResumo(){
+  const k = keepMask(), T = agrega(k, () => 0, 1), L = D.L;
+  const g = x => T[x][0];
+  const anal = g('anal'), fora = g('termos') - anal;
+  const varA = g('mA') ? g('mD') / g('mA') - 1 : null;
+  $('#kpis').innerHTML = [
+    kpi('Clientes com termo em 2026', nf0.format(g('termos')), fora ? `${nf0.format(anal)} analisados · ${nf0.format(fora)} sem período` : `${nf0.format(anal)} analisados`, 'destaque'),
+    kpi('Adimplentes no mês do termo', nf0.format(g('adA')), `${pct(anal ? g('adA') / anal : null)} dos analisados`),
+    kpi('Deixaram de ser adimplentes', nf0.format(g('deixou')), `${pct(g('adA') ? g('deixou') / g('adA') : null)} dos adimplentes antes`, 'destaque negativo'),
+    kpi('Pararam de pagar depois do termo', nf0.format(g('parou')), `${pct(g('pagava') ? g('parou') / g('pagava') : null)} de quem pagava antes`, 'negativo'),
+    kpi('Melhoraram de faixa', nf0.format(g('melhorou')), `${pct(anal ? g('melhorou') / anal : null)} dos analisados · ${nf0.format(g('piorou'))} pioraram`),
+    kpi('Arrecadação mensal antes do termo', brl0.format(g('mA')), 'média dos 12 meses anteriores'),
+    kpi('Arrecadação mensal depois do termo', brl0.format(g('mD')), `${pctSig(varA)} sobre antes do termo`, varA != null && varA < 0 ? 'negativo' : ''),
+    kpi('Arrecadação mensal perdida de quem deixou de ser adimplente', brl0.format(g('perda')), g('deixou') ? `${brl0.format(g('perda') / g('deixou'))} por cliente` : 'nenhum cliente', 'negativo')
+  ].join('');
+
+  const fx = P.faixas[11];
+  $('#regraTxt').innerHTML = `Faixa no mês do termo: os <b>12 meses anteriores</b>. Até ${plural(fx.ad, 'mês', 'meses')} sem pagar é <b>Adimplente</b>; até ${plural(fx.fl, 'mês', 'meses')}, <b>Flutuante</b>; pagou pelo menos 1 mês, <b>Inadimplente</b>; nenhum, <b>Nunca pagou</b>. ` +
+    `Faixa depois: de ${P.inicio ? 'o mês seguinte ao termo' : 'o mês do termo'} até <b>${amLabel(D.am0 + L)}</b> (no máximo 12 meses), com os limites proporcionais ao número de meses. ` +
+    `Um mês conta como pago quando há Valor Pago no mês, pela <b>${P.modo === 'pag' ? 'data do pagamento' : 'referência da fatura (Mês/Ano)'}</b>.`;
+
+  renderMatriz(k, anal, fora);
+  renderPorMes(k);
+  renderEvento(k);
+  if (!$('#cardTipo').hidden) segTable('tblTipo', k, D.tipo, D.dict.tipo, 'Tipo de termo', true);
+  segTable('tblZona', k, D.zona, D.dict.zona, 'Zona');
+  segTable('tblUtil', k, D.util, D.dict.util, 'Utilização');
+  renderRodape();
+}
+
+function renderMatriz(k, anal, fora){
+  const M = Array.from({ length: 4 }, () => new Float64Array(4));
+  for (let m = 0, n = D.mats.length; m < n; m++) if (k[m] && analisado(m)) M[D.cA[m]][D.cD[m]]++;
+  const totL = M.map(r => r.reduce((a, b) => a + b, 0)), totC = [0, 1, 2, 3].map(c => M.reduce((a, r) => a + r[c], 0));
+  const btn = (n, fa, fd) => n ? `<button class="btn-num" type="button" data-fa="${fa}" data-fd="${fd}">${nf0.format(n)}</button>` : '<span style="color:#b6c2ce">0</span>';
+  let h = `<table class="matriz"><thead><tr><th class="canto" rowspan="2">Faixa no mês do termo<br>(12 meses antes)</th><th class="grupo" colspan="4">Faixa depois do termo</th><th rowspan="2">Total</th></tr>
+    <tr>${FAIXAS.map(f => `<th>${f}</th>`).join('')}</tr></thead><tbody>`;
+  for (let a = 0; a < 4; a++){
+    h += `<tr><td>${FAIXAS[a]}</td>`;
+    for (let d = 0; d < 4; d++) h += `<td class="${d < a ? 'melhor' : d > a ? 'pior' : ''}">${btn(M[a][d], a, d)}<span class="pct">${M[a][d] ? pct(M[a][d] / totL[a]) : ''}</span></td>`;
+    h += `<td class="tot">${btn(totL[a], a, -1)}<span class="pct">${pct(anal ? totL[a] / anal : null)}</span></td></tr>`;
+  }
+  h += `<tr class="linha-total"><td>Total</td>${totC.map((c, d) => `<td>${btn(c, -1, d)}<span class="pct">${pct(anal ? c / anal : null)}</span></td>`).join('')}<td>${btn(anal, -1, -1)}</td></tr></tbody></table>`;
+  $('#tblMatriz').innerHTML = h;
+  $('#matNota').textContent = `Cada linha é a faixa do cliente no mês do termo, e cada coluna, a faixa no período depois. O percentual é sobre o total da linha.` +
+    (fora ? ` ${plural(fora, 'cliente ficou', 'clientes ficaram')} fora por não ter${fora === 1 ? '' : 'em'} pelo menos ${plural(Math.max(1, P.min), 'mês', 'meses')} depois do termo até ${amLabel(D.am0 + D.L)}.` : '');
+}
+
+function renderPorMes(k){
+  const nK = D.tMeses.length, o = agrega(k, m => D.tMes[m], nK), labels = D.tMeses.map(amLabel);
+  const el = $('#blocoMes');
+  const media = i => o.anal[i] ? o.nD[i] / o.anal[i] : null;
+  el.innerHTML = graficoAlinhado(labels, [
+    { values: [...o.melhorou], cor: '#176b9c', corTexto: '#fff' },
+    { values: [...o.igual], cor: '#BCD0E1', corTexto: '#102840' },
+    { values: [...o.piorou], cor: '#E8710A', corTexto: '#fff' }
+  ], { aria: 'Clientes analisados por mês de aplicação do termo', fmt: v => nf0.format(v), fmtIn: v => nf0.format(v) }) + tabelaAlinhada(labels, [
+    { nome: 'Clientes com termo', vals: [...o.termos], fmt: v => nf0.format(v), cls: 'forte' },
+    { nome: 'Meses depois medidos (média)', vals: labels.map((_, i) => media(i)), fmt: v => v == null ? '–' : nf1.format(v), cls: 'mudo' },
+    { nome: 'Adimplentes antes', vals: [...o.adA], fmt: v => nf0.format(v) },
+    { nome: 'Deixaram de ser adimplentes', vals: [...o.deixou], fmt: v => nf0.format(v), cls: 'info' },
+    { nome: '% dos adimplentes', vals: labels.map((_, i) => o.adA[i] ? o.deixou[i] / o.adA[i] : null), fmt: pct, cls: 'info' },
+    { nome: 'Pararam de pagar', vals: [...o.parou], fmt: v => nf0.format(v), cls: 'info' },
+    { nome: 'Arrecadação mensal antes', vals: [...o.mA], fmt: v => brl0.format(v) },
+    { nome: 'Arrecadação mensal depois', vals: [...o.mD], fmt: v => brl0.format(v) },
+    { nome: 'Variação', vals: labels.map((_, i) => o.mA[i] ? o.mD[i] / o.mA[i] - 1 : null), fmt: pctSig }
+  ]);
+  el.dica = { n: nK, titulo: i => 'Termos aplicados em ' + labels[i], linhas: i => [
+    { nome: 'Melhorou de faixa', valor: nf0.format(o.melhorou[i]), cor: '#176b9c' },
+    { nome: 'Manteve a faixa', valor: nf0.format(o.igual[i]), cor: '#BCD0E1' },
+    { nome: 'Piorou de faixa', valor: nf0.format(o.piorou[i]), cor: '#E8710A' },
+    'sep',
+    { nome: 'Clientes com termo', valor: nf0.format(o.termos[i]), cls: 'forte' },
+    { nome: 'Analisados', valor: nf0.format(o.anal[i]) },
+    { nome: 'Meses depois medidos (média)', valor: media(i) == null ? '–' : nf1.format(media(i)), cls: 'mudo' },
+    { nome: 'Deixaram de ser adimplentes', valor: `${nf0.format(o.deixou[i])} de ${nf0.format(o.adA[i])}`, cls: 'neg' },
+    { nome: 'Pararam de pagar', valor: nf0.format(o.parou[i]), cls: 'neg' },
+    'sep',
+    { nome: 'Arrecadação mensal antes', valor: brl0.format(o.mA[i]) },
+    { nome: 'Arrecadação mensal depois', valor: brl0.format(o.mD[i]) }
+  ] };
+}
+
+// Pagamento mês a mês em relação ao termo: 12 meses antes até o fim do período depois (no máximo 12 meses)
+function renderEvento(k){
+  const grupo = st.ev, nR = D.nR, V = D.V, L = D.L;
+  const entra = m => k[m] && analisado(m) && (grupo === 'todos' || (grupo === 'ad' ? D.cA[m] === 0 : deixou(m)));
+  let maxO = 0;
+  for (let m = 0, n = D.mats.length; m < n; m++) if (entra(m)) maxO = Math.max(maxO, Math.min(11 + P.inicio, L - D.tI[m]));
+  const offs = []; for (let o = -12; o <= maxO; o++) offs.push(o);
+  const obs = new Float64Array(offs.length), pag = new Float64Array(offs.length), val = new Float64Array(offs.length);
+  for (let m = 0, n = D.mats.length; m < n; m++){
+    if (!entra(m)) continue;
+    const t = D.tI[m], fim = Math.min(L, t + P.inicio + 11);
+    offs.forEach((o, i) => {
+      const r = t + o;
+      if (r < 0 || r > fim || (o >= 0 && o < P.inicio)) return;
+      obs[i]++; const v = V[m * nR + r]; if (v > 0){ pag[i]++; val[i] += v; }
+    });
+  }
+  const taxa = offs.map((_, i) => obs[i] ? pag[i] / obs[i] * 100 : 0);
+  const rot = o => o === 0 ? 'Termo' : (o > 0 ? '+' : '−') + Math.abs(o);
+  const labels = offs.map(rot), i0 = offs.indexOf(0);
+  const el = $('#blocoEv');
+  el.innerHTML = graficoAlinhado(labels, [
+    { values: taxa.map((v, i) => offs[i] < 0 ? v : 0), cor: '#102840', corTexto: '#fff' },
+    { values: taxa.map((v, i) => offs[i] >= 0 ? v : 0), cor: '#176b9c', corTexto: '#fff' }
+  ], { aria: 'Percentual de clientes que pagaram em cada mês em relação ao termo', min: 100, marca: i0, eixo: v => nf0.format(v) + '%', fmt: v => nf0.format(v) + '%', fmtIn: v => nf0.format(v) }) +
+  tabelaAlinhada(labels, [
+    { nome: 'Clientes no mês', vals: [...obs], fmt: v => nf0.format(v), cls: 'mudo' },
+    { nome: 'Pagaram', vals: [...pag], fmt: v => nf0.format(v) },
+    { nome: '% que pagou', vals: offs.map((_, i) => obs[i] ? pag[i] / obs[i] : null), fmt: v => v == null ? '–' : nf0.format(v * 100) + '%', cls: 'forte' },
+    { nome: 'Arrecadação (R$ mil)', vals: [...val], fmt: v => nf0.format(v / 1000) }
+  ]);
+  el.dica = { n: offs.length, titulo: i => offs[i] === 0 ? 'Mês do termo' : `${Math.abs(offs[i])} ${Math.abs(offs[i]) === 1 ? 'mês' : 'meses'} ${offs[i] < 0 ? 'antes' : 'depois'} do termo`, linhas: i => [
+    { nome: 'Clientes no mês', valor: nf0.format(obs[i]) },
+    { nome: 'Pagaram', valor: nf0.format(pag[i]) },
+    { nome: '% que pagou', valor: obs[i] ? nf1.format(pag[i] / obs[i] * 100) + '%' : '–', cls: 'forte' },
+    { nome: 'Arrecadação', valor: brl0.format(val[i]) }
+  ] };
+  const nomeG = { todos: 'clientes analisados', ad: 'clientes que eram adimplentes no mês do termo', deixou: 'clientes que deixaram de ser adimplentes' }[grupo];
+  $('#evNota').textContent = `Percentual dos ${nomeG} que pagaram em cada mês, contado a partir do mês do termo. Depois do termo, cada mês só inclui quem já chegou nele: os meses mais distantes têm só os termos mais antigos.` +
+    (P.inicio ? ' O mês do termo fica fora dos dois períodos.' : '');
+}
+
+const COLS_SEG = [
+  { k: 'termos', t: 'Clientes com termo', f: v => nf0.format(v) },
+  { k: 'anal', t: 'Analisados', f: v => nf0.format(v) },
+  { k: 'adA', t: 'Adimplentes antes', f: v => nf0.format(v) },
+  { k: 'deixou', t: 'Deixaram de ser adimplentes', f: v => nf0.format(v), cls: 'info' },
+  { k: 'pDeixou', t: '% dos adimplentes', calc: (o, g) => o.adA[g] ? o.deixou[g] / o.adA[g] : null, f: pct, cls: 'info' },
+  { k: 'parou', t: 'Pararam de pagar', f: v => nf0.format(v), cls: 'info' },
+  { k: 'melhorou', t: 'Melhoraram de faixa', f: v => nf0.format(v) },
+  { k: 'mA', t: 'Arrec. mensal antes', f: v => brl0.format(v) },
+  { k: 'mD', t: 'Arrec. mensal depois', f: v => brl0.format(v) },
+  { k: 'var', t: 'Variação', calc: (o, g) => o.mA[g] ? o.mD[g] / o.mA[g] - 1 : null, f: pctSig },
+  { k: 'perda', t: 'Arrec. mensal perdida (deixaram)', f: v => brl0.format(v), cls: 'info' }
+];
+function segTable(id, k, arr, names, titulo, comValor){
+  const nK = names.length, o = agrega(k, m => arr[m], nK), T = agrega(k, () => 0, 1);
+  const cols = comValor && D.tValor.some(v => v > 0) ? [...COLS_SEG, { k: 'valor', t: 'Valor dos termos', f: v => brl0.format(v) }] : COLS_SEG;
+  const val = (c, O, g) => c.calc ? c.calc(O, g) : O[c.k][g];
+  const s = st.sort[id] || { k: 'termos', dir: -1 };
+  const rows = []; for (let g = 0; g < nK; g++) if (o.termos[g]) rows.push(g);
+  rows.sort((a, b) => {
+    if (s.k === 'nome') return s.dir * names[a].localeCompare(names[b], 'pt-BR');
+    const c = cols.find(x => x.k === s.k) || cols[0], va = val(c, o, a), vb = val(c, o, b);
+    return s.dir * ((va == null ? -Infinity : va) - (vb == null ? -Infinity : vb));
+  });
+  const seta = key => s.k === key ? (s.dir < 0 ? ' ▾' : ' ▴') : '';
+  const linha = (nome, O, g, tot) => `<tr${tot ? ' class="linha-total"' : ''}><td>${esc(nome || '(vazio)')}</td>` +
+    cols.map(c => { const v = val(c, O, g); return `<td class="${c.cls || ''}${!tot && !v ? ' zero' : ''}">${c.f(v)}</td>`; }).join('') + '</tr>';
+  $('#' + id).innerHTML = `<table class="tab-seg"><thead><tr><th class="sortable" data-tab-id="${id}" data-sort="nome">${titulo}${seta('nome')}</th>` +
+    cols.map(c => `<th class="sortable" data-tab-id="${id}" data-sort="${c.k}">${c.t}${seta(c.k)}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map(g => linha(names[g], o, g)).join('') + linha('Total', T, 0, true) + '</tbody></table>';
+}
+
+function renderRodape(){
+  const s = D.stats, t = s.termos, n = D.mats.length;
+  let semArr = 0; for (let m = 0; m < n; m++) if (!D.temArr[m]) semArr++;
+  const partes = [];
+  partes.push(`Base: ${/arquivos$/.test(D.meta.fonte) ? '' : esc(D.meta.fonte) + ', '}${plural(D.meta.arquivos.length, 'arquivo', 'arquivos')}. Arrecadação de ${amLabel(D.am0)} a ${amLabel(D.am0 + D.nR - 1)}${D.ultData ? ' (último pagamento em ' + D.ultData + ')' : ''}: ${nf0.format(s.linhas)} pagamentos lidos, ${nf0.format(s.linhasTermo)} de clientes com termo.`);
+  if (s.repetidas) partes.push(`${plural(s.repetidas, 'pagamento repetido', 'pagamentos repetidos')} entre arquivos (mesma ligação, nota, referência, data e valor) ${s.repetidas === 1 ? 'foi descartado' : 'foram descartados'}.`);
+  if (s.valorZero) partes.push(`${plural(s.valorZero, 'linha', 'linhas')} de clientes com termo sem Valor Pago não ${s.valorZero === 1 ? 'conta' : 'contam'} como pagamento.`);
+  if (s.refFora) partes.push(`${plural(s.refFora, 'pagamento', 'pagamentos')} de referências fora do período (dívidas antigas) só ${s.refFora === 1 ? 'conta' : 'contam'} quando o mês é a data do pagamento.`);
+  partes.push(`Termos: ${nf0.format(t.linhas)} linhas, ${plural(n, 'cliente', 'clientes')} com termo em 2026` + (t.repetidos ? ` (${plural(t.repetidos, 'termo repetido', 'termos repetidos')} no ano: vale o primeiro)` : '') +
+    (t.foraAno ? `, ${plural(t.foraAno, 'termo', 'termos')} de outros anos fora da análise` : '') + (t.semData ? `, ${plural(t.semData, 'linha', 'linhas')} sem data` : '') + '.' +
+    (t.colData ? ` O mês do termo vem da coluna ${esc(t.colData)}` + (t.semNeg ? `; ${plural(t.semNeg, 'termo sem', 'termos sem')} Data de negociação ${t.semNeg === 1 ? 'usou' : 'usaram'} a Data de aplicação.` : '.') : ''));
+  if (semArr) partes.push(`${plural(semArr, 'cliente com termo não tem', 'clientes com termo não têm')} nenhum pagamento na base (contam como Nunca pagou; confira se o número da ligação é o mesmo nas duas bases).`);
+  if (s.sit.length > 1) partes.push('Situação Pagto: ' + s.sit.slice(0, 8).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.');
+  if (s.ignoradas.length) partes.push('Abas ignoradas (sem as colunas da arrecadação): ' + s.ignoradas.slice(0, 6).map(esc).join(', ') + (s.ignoradas.length > 6 ? '…' : '') + '.');
+  $('#foot').innerHTML = partes.join(' ');
+}
+
+/* ---------- Consolidado ---------- */
+const PAGE = 100;
+const fixas = () => [...FIXED.slice(0, 5), ...(D.extrasUsados || []).map(x => x.nome), ...FIXED.slice(5)];
+const FIXED = ['Nº Ligação', 'Cliente', 'Zona', 'Utilização', 'Tipo de termo', 'Data do termo', 'Termos no ano', 'Pagos antes', 'Faixa antes', 'Pagos depois', 'Faixa depois', 'Movimento', 'Arrec. mensal antes', 'Arrec. mensal depois'];
+const faixaTxt = c => c < 0 ? 'Sem período' : FAIXAS[c];
+const movTxt = m => D.mov[m] < 0 ? 'Fora da análise' : deixou(m) ? 'Deixou de ser adimplente' : MOV[D.mov[m]];
+function fillConsSel(){
+  const op = (v, t) => `<option value="${v}">${t}</option>`;
+  const fa = $('#cFA').value, fd = $('#cFD').value;
+  $('#cFA').innerHTML = op('all', 'Todas') + FAIXAS.map((f, i) => op(i, f)).join('');
+  $('#cFD').innerHTML = op('all', 'Todas') + FAIXAS.map((f, i) => op(i, f)).join('') + op(-1, 'Sem período depois');
+  if (fa) $('#cFA').value = fa; if (fd) $('#cFD').value = fd;
+}
+fillConsSel();
+function consList(){
+  const k = keepMask(), q = $('#cSearch').value.trim().toLowerCase(), fa = $('#cFA').value, fd = $('#cFD').value, mv = $('#cMov').value;
+  const ok = m => {
+    if (!k[m]) return false;
+    if (fa !== 'all' && D.cA[m] !== +fa) return false;
+    if (fd !== 'all' && D.cD[m] !== +fd) return false;
+    switch (mv){
+      case 'deixou': if (!deixou(m)) return false; break;
+      case 'parou': if (!parou(m)) return false; break;
+      case 'piorou': if (D.mov[m] !== 1) return false; break;
+      case 'igual': if (D.mov[m] !== 0) return false; break;
+      case 'melhorou': if (D.mov[m] !== 2) return false; break;
+      case 'fora': if (D.mov[m] >= 0) return false; break;
+    }
+    if (q && !D.mats[m].toLowerCase().includes(q) && !String(D.nomes[m]).toLowerCase().includes(q)) return false;
+    return true;
+  };
+  const out = []; for (const m of D.ordLig) if (ok(m)) out.push(m);
+  const s = $('#cSort').value;
+  if (s === 'perda') out.sort((a, b) => (D.mA[b] - D.mD[b]) - (D.mA[a] - D.mD[a]));
+  else if (s === 'data') out.sort((a, b) => D.tData[a].split('/').reverse().join('').localeCompare(D.tData[b].split('/').reverse().join('')));
+  return out;
+}
+// janela de cada mês para o cliente: 1 = antes, 2 = depois, 0 = fora dos dois períodos
+function janela(m, r){
+  const t = D.tI[m];
+  if (r >= t - 12 && r < t && r <= D.L) return 1;
+  if (r >= t + P.inicio && r <= Math.min(D.L, t + P.inicio + 11)) return 2;
+  return 0;
+}
+function renderCons(recalc){
+  if (recalc || !st.list){ st.list = consList(); st.page = 0; }
+  const list = st.list, nR = D.nR, V = D.V;
+  const pages = Math.max(1, Math.ceil(list.length / PAGE));
+  st.page = Math.min(st.page, pages - 1);
+  $('#cCount').textContent = `${plural(list.length, 'cliente', 'clientes')} · valores pagos em cada mês pela ${P.modo === 'pag' ? 'data do pagamento' : 'referência da fatura'}`;
+  $('#pInfo').textContent = `Página ${st.page + 1} de ${nf0.format(pages)}`;
+  $('#pPrev').disabled = st.page === 0; $('#pNext').disabled = st.page >= pages - 1;
+  let h = '<table><thead><tr>' + fixas().map((t, i) => `<th class="txt${i === 1 ? ' c2' : ''}">${t}</th>`).join('');
+  for (let r = 0; r < nR; r++) h += `<th>${amLabel(D.am0 + r)}</th>`;
+  h += '</tr></thead><tbody>';
+  const start = st.page * PAGE, end = Math.min(list.length, start + PAGE);
+  for (let i = start; i < end; i++){
+    const m = list[i], cA = D.cA[m], cD = D.cD[m];
+    h += `<tr><td class="txt">${esc(D.mats[m])}</td><td class="txt c2">${esc(D.nomes[m])}</td><td class="txt">${esc(D.dict.zona[D.zona[m]])}</td><td class="txt">${esc(D.dict.util[D.util[m]])}</td>` +
+      `<td class="txt">${esc(D.dict.tipo[D.tipo[m]])}</td>` + (D.extrasUsados || []).map(x => `<td class="txt">${esc(x.lista[D.extra[x.k][m]])}</td>`).join('') + `<td>${esc(D.tData[m])}</td><td>${D.tQtd[m]}</td>` +
+      `<td>${D.pA[m]} de ${D.nA[m]}</td><td class="txt f${cA}">${faixaTxt(cA)}</td><td>${D.pD[m]} de ${D.nD[m]}</td><td class="txt f${cD}">${faixaTxt(cD)}</td>` +
+      `<td class="txt ${D.mov[m] === 1 ? 'neg' : D.mov[m] === 2 ? 'pos' : ''}">${movTxt(m)}</td><td>${nf2.format(D.mA[m])}</td><td>${nf2.format(D.mD[m])}</td>`;
+    for (let r = 0; r < nR; r++){
+      const v = V[m * nR + r], j = janela(m, r);
+      const c = (r === D.tI[m] ? 'mt ' : '') + (!j ? 'fora' : v > 0 ? '' : 'sem');
+      h += `<td class="${c}">${v > 0 ? nf2.format(v) : '–'}</td>`;
+    }
+    h += '</tr>';
+  }
+  if (!list.length) h += `<tr><td class="txt" colspan="${fixas().length + nR}">Nenhum cliente com esses filtros.</td></tr>`;
+  h += '</tbody></table>';
+  const wrap = $('#tblCons'); wrap.innerHTML = h;
+  const c1 = wrap.querySelector('thead th'); if (c1) wrap.style.setProperty('--c1w', c1.getBoundingClientRect().width + 'px');
+}
+function baixa(parts, nome){
+  const url = URL.createObjectURL(new Blob(parts, { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+async function exportCsv(){
+  const list = st.list || consList(), nR = D.nR, V = D.V;
+  if (!list.length){ toast('Não há clientes para exportar com esses filtros.'); return; }
+  bloqueia(true); prog(true, 'Gerando o CSV', plural(list.length, 'cliente', 'clientes'), 0);
+  const q = s => { s = String(s); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const dec = v => nf2.format(v).replace(/\./g, '');
+  const xs = D.extrasUsados || [];
+  const head = ['NUM_LIGACAO', 'CLIENTE', 'ZONA', 'UTILIZACAO', 'TIPO_TERMO', ...xs.map(x => norm(x.nome)), 'DATA_TERMO', 'MES_TERMO', 'TERMOS_NO_ANO', 'VALOR_TERMO',
+    'MESES_ANTES', 'MESES_PAGOS_ANTES', 'FAIXA_ANTES', 'MESES_DEPOIS', 'MESES_PAGOS_DEPOIS', 'FAIXA_DEPOIS', 'MOVIMENTO',
+    'DEIXOU_DE_SER_ADIMPLENTE', 'PAROU_DE_PAGAR', 'ARREC_MENSAL_ANTES', 'ARREC_MENSAL_DEPOIS'];
+  for (let r = 0; r < nR; r++) head.push('PAGO ' + amLabel(D.am0 + r));
+  const parts = ['﻿' + head.join(';') + '\r\n'];
+  for (let i = 0; i < list.length; i += 5000){
+    let chunk = '';
+    for (let x = i; x < Math.min(list.length, i + 5000); x++){
+      const m = list[x];
+      const row = [D.mats[m], D.nomes[m], D.dict.zona[D.zona[m]], D.dict.util[D.util[m]], D.dict.tipo[D.tipo[m]], ...xs.map(x => x.lista[D.extra[x.k][m]]), D.tData[m], amLabel(D.tAm[m]), D.tQtd[m], dec(D.tValor[m]),
+        D.nA[m], D.pA[m], faixaTxt(D.cA[m]), D.nD[m], D.pD[m], faixaTxt(D.cD[m]), movTxt(m), deixou(m) ? 'SIM' : 'NAO', parou(m) ? 'SIM' : 'NAO', dec(D.mA[m]), dec(D.mD[m])].map(q);
+      for (let r = 0; r < nR; r++){ const v = V[m * nR + r]; row.push(v > 0 ? dec(v) : ''); }
+      chunk += row.join(';') + '\r\n';
+    }
+    parts.push(chunk);
+    prog(true, null, null, i / list.length);
+    await new Promise(r => setTimeout(r));
+  }
+  baixa(parts, 'clientes_com_termo.csv');
+  prog(false); bloqueia(false);
+}
+
+function showTab(t){
+  st.tab = t;
+  document.querySelectorAll('[data-tab]').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+  $('#view-resumo').hidden = t !== 'resumo'; $('#view-cons').hidden = t !== 'cons';
+  if (t === 'resumo') renderResumo(); else renderCons(true);
+}
+function refresh(){ if (!D) return; st.list = null; if (st.tab === 'resumo') renderResumo(); else renderCons(true); }
+
+let pasta = null;
+const temPicker = 'showDirectoryPicker' in window;
+function mostraFonte(){
+  $('#fonte').innerHTML = pasta ? `📁 Pasta conectada: <b>${esc(pasta.name)}</b>. Clique em ↻ Atualizar para ler os arquivos de novo.`
+    : temPicker ? 'Nenhuma pasta conectada.' : 'Este navegador não lembra a pasta: use o Chrome ou o Edge para conectar e atualizar com um clique.';
+  $('#btnUpdate').hidden = !pasta;
+  $('#btnUpdate').classList.toggle('primary', !!pasta);
+  $('#btnFolder').classList.toggle('primary', !pasta);
+}
+// lê a pasta e as subpastas (arrecadação acumulada e diária), guardando o caminho para mostrar no rodapé
+async function coletaArquivos(dir, out, caminho){
+  for await (const [nome, e] of dir.entries()){
+    if (e.kind === 'file'){
+      if (ehDado(nome)){ const f = await e.getFile(); try { Object.defineProperty(f, 'webkitRelativePath', { value: caminho + nome }); } catch (_) {} out.push(f); }
+    } else await coletaArquivos(e, out, caminho + nome + '/');
+  }
+}
+async function lePasta(h){
+  if (rodando) return;
+  try {
+    if ((await h.queryPermission({ mode: 'read' })) !== 'granted' && (await h.requestPermission({ mode: 'read' })) !== 'granted'){
+      progErro('O acesso à pasta não foi liberado.', 'Clique em ↻ Atualizar e permita a leitura quando o navegador perguntar.'); return;
+    }
+    bloqueia(true);
+    prog(true, 'Lendo a pasta…', `Procurando os arquivos .xlsx e .csv em “${h.name}”.`, 0);
+    const files = []; await coletaArquivos(h, files, h.name + '/');
+    bloqueia(false);
+    loadFiles(files, `pasta “${h.name}”`);
+  } catch (e){
+    if (e && (e.name === 'NotFoundError' || e.name === 'NotReadableError'))
+      progErro(`A pasta “${h.name}” não foi encontrada.`, 'Ela pode ter mudado de nome ou de lugar. Clique em 📁 Conectar pasta e escolha de novo.');
+    else progErro('Não foi possível ler a pasta.', String(e && e.message || e));
+  }
+}
+async function conectaPasta(){
+  if (rodando) return;
+  if (!temPicker){ $('#inFolder').click(); return; }
+  let h;
+  try { h = await window.showDirectoryPicker({ id: 'termos2026', mode: 'read' }); }
+  catch (e){ if (e && e.name !== 'AbortError') progErro('Não foi possível abrir a pasta.', String(e.message || e)); return; }
+  pasta = h;
+  try { await idbSavePasta(h); } catch (_) {}
+  mostraFonte();
+  lePasta(h);
+}
+$('#btnFolder').onclick = conectaPasta;
+$('#btnUpdate').onclick = () => { if (pasta) lePasta(pasta); };
+$('#btnFiles').onclick = () => $('#inFiles').click();
+$('#inFiles').onchange = e => { loadFiles(e.target.files); e.target.value = ''; };
+$('#inFolder').onchange = e => { const f = e.target.files; const nome = f.length && f[0].webkitRelativePath ? f[0].webkitRelativePath.split('/')[0] : 'pasta'; loadFiles(f, `pasta “${nome}”`); e.target.value = ''; };
+$('#btnClear').onclick = async () => {
+  if (!confirm('Apagar a base guardada neste navegador e desconectar a pasta? Os arquivos no seu computador não são afetados.')) return;
+  try { await idbClear(); } catch (_) {}
+  location.reload();
+};
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+document.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
+  st.ev = b.dataset.ev;
+  document.querySelectorAll('[data-ev]').forEach(x => { const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); });
+  renderEvento(keepMask());
+});
+document.addEventListener('click', e => {
+  const th = e.target.closest('th.sortable'); if (!th) return;
+  const id = th.dataset.tabId, s = st.sort[id] || { k: 'termos', dir: -1 };
+  st.sort[id] = s.k === th.dataset.sort ? { k: s.k, dir: -s.dir } : { k: th.dataset.sort, dir: th.dataset.sort === 'nome' ? 1 : -1 };
+  renderResumo();
+});
+// número da matriz: abre o Consolidado com as faixas antes e depois
+$('#tblMatriz').addEventListener('click', e => {
+  const b = e.target.closest('[data-fa]'); if (!b) return;
+  $('#cFA').value = b.dataset.fa < 0 ? 'all' : b.dataset.fa; $('#cFD').value = b.dataset.fd < 0 ? 'all' : b.dataset.fd;
+  $('#cMov').value = 'all'; $('#cSearch').value = '';
+  showTab('cons');
+});
+ligaDica($('#blocoMes')); ligaDica($('#blocoEv'));
+let tSearch; $('#cSearch').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(() => renderCons(true), 250); };
+['#cFA', '#cFD', '#cMov', '#cSort'].forEach(id => { $(id).onchange = () => renderCons(true); });
+$('#pPrev').onclick = () => { st.page--; renderCons(false); $('#tblCons').scrollTop = 0; };
+$('#pNext').onclick = () => { st.page++; renderCons(false); $('#tblCons').scrollTop = 0; };
+$('#btnExport').onclick = exportCsv;
+
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
+
+// abre com a última base guardada
+(async () => {
+  try {
+    try { pasta = await idbLoadPasta() || null; } catch (_) { pasta = null; }
+    mostraFonte();
+    const d = await idbLoad();
+    if (d && d.tAm) setData(d);
+  } catch (_) {}
+})();
+})();
+</script>
+</body>
+</html>
