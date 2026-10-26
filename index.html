@@ -246,7 +246,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v1.0</span>
+      <span class="versao" id="versao" title="Versão do painel">v1.1</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -275,6 +275,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="filtro-wrap" id="fZona"></div>
     <div class="filtro-wrap" id="fUtil"></div>
     <div class="filtro-wrap" id="fTipo"></div>
+    <span id="fExtras" style="display:contents"></span>
   </div>
 </div>
 
@@ -423,7 +424,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
 <!-- ===================== Worker: lê os .xlsx e .csv sem travar a tela ===================== -->
 <script type="text/plain" id="worker-src">
 // Nomes de coluna comparados sem acento, maiúsculas e pontuação ("Nº Ligação" vira N_LIGACAO, "Data Pagto." vira DATA_PAGTO)
-const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 const str = v => v == null ? '' : String(v).trim();
 const LIG = ['N_LIGACAO', 'NO_LIGACAO', 'NUM_LIGACAO', 'NUMERO_LIGACAO', 'NUMERO_DA_LIGACAO', 'LIGACAO', 'MATRICULA', 'N_MATRICULA'];
 const ALIAS_ARR = {
@@ -433,14 +434,26 @@ const ALIAS_ARR = {
   CLIENTE: 'nome', NOM_CLIENTE: 'nome', NOME: 'nome', NOME_CLIENTE: 'nome', SITUACAO_PAGTO: 'sit', SITUACAO_PAGAMENTO: 'sit'
 };
 const ALIAS_TERMO = {
-  DATA_DO_TERMO: 'data', DATA_TERMO: 'data', DATA_APLICACAO: 'data', DATA_DE_APLICACAO: 'data', DATA_DA_APLICACAO: 'data', DT_TERMO: 'data',
-  DATA_EMISSAO: 'data', DATA: 'data', REFERENCIA: 'ref', MES: 'mes', ANO: 'ano',
-  TIPO_DE_TERMO: 'tipo', TIPO_DO_TERMO: 'tipo', TIPO_TERMO: 'tipo', TIPO: 'tipo', MOTIVO: 'tipo',
+  DATA_DE_NEGOCIACAO: 'neg', DATA_NEGOCIACAO: 'neg', DATA_DA_NEGOCIACAO: 'neg',
+  DATA_DE_APLICACAO: 'apl', DATA_APLICACAO: 'apl', DATA_DA_APLICACAO: 'apl',
+  DATA_DO_TERMO: 'data', DATA_TERMO: 'data', DT_TERMO: 'data', DATA_EMISSAO: 'data', DATA: 'data', REFERENCIA: 'ref', MES: 'mes', ANO: 'ano',
+  TIPO_DE_ATIVIDADE: 'tipo', TIPO_DE_TERMO: 'tipo', TIPO_DO_TERMO: 'tipo', TIPO_TERMO: 'tipo', TIPO: 'tipo', MOTIVO: 'tipo',
   VALOR_DO_TERMO: 'valor', VALOR_TERMO: 'valor', VALOR: 'valor',
   ZONA_LOCALIDADE: 'zona', ZONA: 'zona', LOCALIDADE: 'zona', CIDADE: 'zona', UTILIZACAO_SUB_CATEG: 'util', UTILIZACAO: 'util', SUB_CATEGORIA: 'util',
   CLIENTE: 'nome', NOM_CLIENTE: 'nome', NOME: 'nome'
 };
 LIG.forEach(k => { ALIAS_ARR[k] = 'mat'; ALIAS_TERMO[k] = 'mat'; });
+// colunas da base de termos que viram filtros no painel
+const EXTRAS = [
+  { k: 'sitT', nome: 'Situação do termo', col: ['SITUACAO_DO_TERMO', 'SITUACAO_TERMO'] },
+  { k: 'fat', nome: 'Faturado', col: ['FATURADO'] },
+  { k: 'ise', nome: 'Isento', col: ['ISENTO'] },
+  { k: 'fre', nome: 'Frente', col: ['FRENTE'] },
+  { k: 'equ', nome: 'Equipe', col: ['EQUIPE'] },
+  { k: 'cat', nome: 'Categoria', col: ['CATEGORIA'] },
+  { k: 'ori', nome: 'Origem', col: ['ORIGEM'] }
+];
+EXTRAS.forEach(x => x.col.forEach(c => { ALIAS_TERMO[c] = 'x_' + x.k; }));
 function toNum(v){
   if (v == null || v === '') return 0;
   if (typeof v === 'number') return isFinite(v) ? v : 0;
@@ -664,8 +677,9 @@ async function streamCsv(file, onRow, onProgress){
   }
   if (buf) linha(buf);
 }
-// percorre as linhas de cada aba (.xlsx) ou do arquivo (.csv): onTabela(nome) devolve o tratador de linhas da tabela
-async function percorre(file, onTabela, onProgress){
+// percorre as linhas de cada aba (.xlsx) ou do arquivo (.csv): onTabela(nome) devolve o tratador de linhas da tabela.
+// escolhe(abas) pode limitar as abas lidas
+async function percorre(file, onTabela, onProgress, escolhe){
   if (/\.csv$/i.test(file.name)){
     const t = onTabela(file.name);
     await streamCsv(file, c => t.linha(c), onProgress); t.fim(); return;
@@ -675,7 +689,9 @@ async function percorre(file, onTabela, onProgress){
   const sst = [];
   const se = byName.get('xl/sharedStrings.xml');
   if (se) await streamBlocks(file, se, '</si>', blk => { sst.push(texts(blk.slice(blk.indexOf('<si')))); }, p => onProgress(p, 'Lendo os textos do arquivo…'));
-  for (const sh of await sheetList(file, byName)){
+  let abas = await sheetList(file, byName);
+  if (escolhe) abas = escolhe(abas);
+  for (const sh of abas){
     const t = onTabela(sh.name);
     await streamBlocks(file, sh.entry, '</row>', blk => t.linha(parseCells(blk, sst)), onProgress);
     t.fim();
@@ -690,7 +706,7 @@ function tabela(alias, onLinha, onFim){
       vistas++;
       const nomes = c.map(norm);
       if (nomes.some(n => LIG.includes(n))){
-        h = { nomes };
+        h = { nomes, orig: c.map(str) };
         nomes.forEach((n, i) => { const k = alias[n]; if (k && h[k] === undefined) h[k] = i; });
         return;
       }
@@ -706,18 +722,31 @@ const ANO_TERMO = 2026;
 class Termos {
   constructor(){
     this.m = new Map();
-    this.st = { linhas: 0, foraAno: 0, semData: 0, repetidos: 0, arquivos: [], semColunaData: [] };
+    this.st = { linhas: 0, foraAno: 0, semData: 0, semNeg: 0, repetidos: 0, arquivos: [], semColunaData: [], colData: '' };
+  }
+  // aba Termos, quando existir; senão todas, menos a de resumo
+  static abas(lista){
+    const t = lista.filter(a => norm(a.name) === 'TERMOS');
+    return t.length ? t : lista.filter(a => norm(a.name) !== 'RESUMO');
   }
   add(c, h){
     const mk = ligKey(c[h.mat]); if (!mk) return;
     this.st.linhas++;
-    let di = h.data !== undefined ? dataInfo(c[h.data]) : null;
+    // mês do termo: Data de negociação (definido pelo usuário). Sem negociação, vale a Data de aplicação
+    let di = h.neg !== undefined ? dataInfo(c[h.neg]) : null;
+    if (!di && h.neg !== undefined && (h.apl !== undefined || h.data !== undefined)){
+      di = dataInfo(c[h.apl !== undefined ? h.apl : h.data]);
+      if (di) this.st.semNeg++;
+    }
+    if (!di && h.neg === undefined && h.data !== undefined) di = dataInfo(c[h.data]);
+    if (!di && h.neg === undefined && h.apl !== undefined) di = dataInfo(c[h.apl]);
     if (!di && h.ref !== undefined) di = dataInfo(c[h.ref]);
     if (!di && h.mes !== undefined){ const a = mesAno(c[h.mes], c[h.ano]); if (a >= 0) di = { am: a, txt: pad(a % 12 + 1) + '/' + Math.floor(a / 12) }; }
     if (!di){ this.st.semData++; return; }
     if (Math.floor(di.am / 12) !== ANO_TERMO){ this.st.foraAno++; return; }
     const v = { am: di.am, txt: di.txt, tipo: h.tipo !== undefined ? str(c[h.tipo]) : '', valor: h.valor !== undefined ? toNum(c[h.valor]) : 0,
-      zona: h.zona !== undefined ? str(c[h.zona]) : '', util: h.util !== undefined ? str(c[h.util]) : '', nome: h.nome !== undefined ? str(c[h.nome]) : '', qtd: 1 };
+      zona: h.zona !== undefined ? str(c[h.zona]) : '', util: h.util !== undefined ? str(c[h.util]) : '', nome: h.nome !== undefined ? str(c[h.nome]) : '', qtd: 1,
+      x: EXTRAS.map(x => h['x_' + x.k] !== undefined ? str(c[h['x_' + x.k]]) : '') };
     const o = this.m.get(mk);
     if (!o){ this.m.set(mk, v); return; }
     // mais de um termo no ano: vale o primeiro, e a quantidade fica registrada
@@ -728,7 +757,9 @@ class Termos {
   // colunas que não vieram com nome conhecido: a primeira com "DATA", "TIPO" ou "VALOR" no nome
   completa(h){
     const acha = re => h.nomes.findIndex(n => re.test(n));
-    if (h.data === undefined && h.ref === undefined && h.mes === undefined){ const i = acha(/DATA|^DT_/); if (i >= 0) h.data = i; }
+    if (h.neg === undefined && h.apl === undefined && h.data === undefined && h.ref === undefined && h.mes === undefined){ const i = acha(/DATA|^DT_/); if (i >= 0) h.data = i; }
+    const col = ['neg', 'apl', 'data', 'ref', 'mes'].find(k => h[k] !== undefined);
+    this.st.colData = col ? h.orig[h[col]] : '';
     if (h.tipo === undefined){ const i = acha(/TIPO/); if (i >= 0) h.tipo = i; }
     if (h.valor === undefined){ const i = acha(/VALOR/); if (i >= 0) h.valor = i; }
   }
@@ -743,6 +774,7 @@ class Arrecadacao {
     const n = this.mats.length;
     this.nome = new Array(n).fill(''); this.zona = new Int32Array(n).fill(-1); this.util = new Int32Array(n).fill(-1); this.ult = new Int32Array(n).fill(-1);
     this.d = { zona: new Dict(), util: new Dict(), tipo: new Dict() };
+    EXTRAS.forEach(x => { this.d[x.k] = new Dict(); });
     this.rMat = new G(Int32Array); this.rRef = new G(Int32Array); this.rPag = new G(Int32Array); this.rVal = new G(Float64Array);
     this.vistos = new Set();
     this.minPag = Infinity; this.maxPag = -Infinity; this.minRef = Infinity; this.maxRef = -Infinity; this.ultData = '';
@@ -796,9 +828,11 @@ class Arrecadacao {
       if (p >= am0 && p <= am1) valPag[m * nR + p - am0] += v;
     }
     const tAm = new Int32Array(nM), tValor = new Float64Array(nM), tQtd = new Uint8Array(nM), tipo = new Uint16Array(nM), zona = new Uint16Array(nM), util = new Uint16Array(nM);
-    const tData = [], nomes = [];
+    const tData = [], nomes = [], extra = {};
+    EXTRAS.forEach(x => { extra[x.k] = new Uint16Array(nM); });
     this.mats.forEach((k, m) => {
       const t = termos.get(k);
+      EXTRAS.forEach((x, i) => { extra[x.k][m] = this.d[x.k].id(t.x[i] || '(vazio)'); });
       tAm[m] = t.am; tData.push(t.txt); tValor[m] = t.valor; tQtd[m] = Math.min(255, t.qtd); tipo[m] = this.d.tipo.id(t.tipo || '(sem tipo)');
       nomes.push(this.nome[m] || t.nome);
       // sem pagamento na base, zona e utilização vêm da base de termos, se ela tiver
@@ -808,6 +842,7 @@ class Arrecadacao {
     const st = this.st;
     return {
       am0, nR, temPag, ultData: this.ultData, mats: this.mats, nomes, tAm, tData, tValor, tQtd, tipo, zona, util, temArr, valRef, valPag,
+      extra, extraNomes: EXTRAS.map(x => ({ k: x.k, nome: x.nome, lista: this.d[x.k].list })),
       dict: { zona: this.d.zona.list, util: this.d.util.list, tipo: this.d.tipo.list },
       stats: { linhas: st.linhas, linhasTermo: st.linhasTermo, repetidas: st.repetidas, valorZero: st.valorZero, semMes: st.semMes, semLig: st.semLig, refFora,
         sit: [...st.sit.entries()].sort((a, b) => b[1] - a[1]), porMes: [...st.porMes.entries()].sort((a, b) => a[0] - b[0]), abas: st.abas, ignoradas: st.ignoradas }
@@ -825,15 +860,15 @@ function progress(title, msg, pct, force){
 async function processFiles(files){
   const nomeArq = f => f.webkitRelativePath || f.name;
   // a base de termos vem primeiro: a arrecadação só guarda os pagamentos de quem recebeu termo
-  const ehTermo = f => TERMO_RE.test(f.name.normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  const ehTermo = f => TERMO_RE.test(f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
   const fT = files.filter(ehTermo), fA = files.filter(f => !ehTermo(f));
   if (!fT.length) throw new Error('A base de termos não foi encontrada. Coloque na pasta um arquivo com “termo” no nome (por exemplo, “Termos aplicados 2026.xlsx”).');
   const T = new Termos();
   for (const file of fT){
     progress('Base de termos: ' + file.name, 'Lendo os termos…', 0, true);
     await percorre(file, aba => tabela(ALIAS_TERMO, (c, h) => { if (!h.ok){ T.completa(h); h.ok = true; } T.add(c, h); },
-      h => { if (h) T.st.arquivos.push(file.name + (aba !== file.name ? ' / ' + aba : '')); if (h && h.data === undefined && h.ref === undefined && h.mes === undefined) T.st.semColunaData.push(file.name); }),
-      p => progress('Base de termos: ' + file.name, 'Lendo os termos…', p));
+      h => { if (h) T.st.arquivos.push(file.name + (aba !== file.name ? ' / ' + aba : '')); if (h && !T.st.colData) T.st.semColunaData.push(file.name); }),
+      p => progress('Base de termos: ' + file.name, 'Lendo os termos…', p), Termos.abas);
   }
   if (!T.m.size) throw new Error(T.st.linhas ? `A base de termos tem ${T.st.linhas} linhas, mas nenhuma com data de ${ANO_TERMO}. Confira a coluna com a data do termo.` : 'A base de termos não tem a coluna com o número da ligação (Nº Ligação ou Matrícula).');
   const A = new Arrecadacao(T.m);
@@ -852,13 +887,13 @@ async function processFiles(files){
   if (!A.st.linhas) throw new Error('Nenhum pagamento encontrado. Confira se os arquivos de arrecadação têm as colunas Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.');
   progress('Montando o consolidado', 'Organizando os pagamentos por cliente e mês…', 1, true);
   const d = A.build(T.m);
-  d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, repetidos: T.st.repetidos, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData };
+  d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, semNeg: T.st.semNeg, repetidos: T.st.repetidos, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData, colData: T.st.colData };
   return d;
 }
 self.onmessage = async ev => {
   try {
     const d = await processFiles(ev.data.files);
-    const tr = [d.tAm, d.tValor, d.tQtd, d.tipo, d.zona, d.util, d.temArr, d.valRef, d.valPag].map(a => a.buffer);
+    const tr = [d.tAm, d.tValor, d.tQtd, d.tipo, d.zona, d.util, d.temArr, d.valRef, d.valPag, ...Object.values(d.extra)].map(a => a.buffer);
     self.postMessage({ type: 'done', data: d }, tr);
   } catch (err){
     self.postMessage({ type: 'error', message: err && err.message ? err.message : String(err) });
@@ -871,7 +906,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '1.0';
+const VERSAO_SITE = '1.1';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -883,13 +918,14 @@ const brl0 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL'
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const pct = v => v == null || !isFinite(v) ? '–' : nf1.format(v * 100) + '%';
 const pctSig = v => v == null || !isFinite(v) ? '–' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + nf1.format(Math.abs(v) * 100) + '%';
+const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_');
 const plural = (n, um, varios) => nf0.format(n) + ' ' + (n === 1 ? um : varios);
 
 const FAIXAS = ['Adimplente', 'Flutuante', 'Inadimplente', 'Nunca pagou'];
 const MOV = ['Manteve a faixa', 'Piorou', 'Melhorou'];
 
 let D = null;
-const st = { mesSel: null, zonaSel: null, utilSel: null, tipoSel: null, tab: 'resumo', page: 0, list: null, ev: 'todos', sort: {} };
+const st = { mesSel: null, zonaSel: null, utilSel: null, tipoSel: null, xSel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', sort: {} };
 
 /* ---------- parâmetros (guardados neste navegador) ---------- */
 // Faixa pela quantidade de meses sem pagar no período. Nos 12 meses antes do termo (regra definida pelo usuário):
@@ -1004,13 +1040,18 @@ function setData(d){
   D.tMeses = [...new Set(D.tAm)].sort((a, b) => a - b);
   const pos = new Map(D.tMeses.map((a, i) => [a, i]));
   D.tMes = new Uint8Array(n); for (let m = 0; m < n; m++) D.tMes[m] = pos.get(D.tAm[m]);
-  st.mesSel = st.zonaSel = st.utilSel = st.tipoSel = null; st.page = 0;
+  st.mesSel = st.zonaSel = st.utilSel = st.tipoSel = null; st.xSel = {}; st.page = 0;
   montaFiltro('fMes', 'Mês do termo', D.tMeses.map(amLabel), 'mesSel', true);
   montaFiltro('fZona', 'Zona', D.dict.zona, 'zonaSel');
   montaFiltro('fUtil', 'Utilização', D.dict.util, 'utilSel');
   const temTipo = !(D.dict.tipo.length === 1 && D.dict.tipo[0] === '(sem tipo)');
   $('#fTipo').hidden = !temTipo; $('#cardTipo').hidden = !temTipo;
   if (temTipo) montaFiltro('fTipo', 'Tipo de termo', D.dict.tipo, 'tipoSel');
+  // filtros das colunas da base de termos (Situação do termo, Faturado, Isento, Frente, Equipe, Categoria, Origem);
+  // a coluna que não existe no arquivo não aparece
+  D.extrasUsados = (D.extraNomes || []).filter(x => !(x.lista.length === 1 && x.lista[0] === '(vazio)'));
+  $('#fExtras').innerHTML = D.extrasUsados.map(x => `<div class="filtro-wrap" id="fX_${x.k}"></div>`).join('');
+  D.extrasUsados.forEach(x => montaFiltro('fX_' + x.k, x.nome, x.lista, x.k, false, st.xSel));
   montaParam();
   const dt = new Date(D.meta.carregadoEm);
   $('#status').textContent = `Termos de ${amLabel(D.tMeses[0])} a ${amLabel(D.tMeses[D.tMeses.length - 1])} · pagamentos até ${D.ultData || amLabel(D.am0 + D.nR - 1)} · carregado em ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
@@ -1020,7 +1061,8 @@ function setData(d){
 }
 
 /* ---------- filtros (lista de seleção, como no painel de economias) ---------- */
-function montaFiltro(id, nome, lista, chave, emOrdem){
+function montaFiltro(id, nome, lista, chave, emOrdem, alvo){
+  alvo = alvo || st;
   const wrap = $('#' + id);
   const itens = lista.map((v, i) => [v, i]);
   if (!emOrdem) itens.sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
@@ -1031,14 +1073,17 @@ function montaFiltro(id, nome, lista, chave, emOrdem){
   const caixas = [...wrap.querySelectorAll('input')];
   const aplica = () => {
     const marcadas = caixas.filter(c => c.checked).map(c => +c.value);
-    st[chave] = marcadas.length === caixas.length ? null : new Set(marcadas);
-    badge.textContent = st[chave] ? String(marcadas.length) : 'Todas';
+    alvo[chave] = marcadas.length === caixas.length ? null : new Set(marcadas);
+    badge.textContent = alvo[chave] ? String(marcadas.length) : 'Todas';
     refresh();
   };
   btn.onclick = e => {
     e.stopPropagation();
     document.querySelectorAll('.painel-filtro.aberto').forEach(p => { if (p !== painel){ p.classList.remove('aberto'); p.previousElementSibling.setAttribute('aria-expanded', 'false'); } });
     const ab = painel.classList.toggle('aberto'); btn.setAttribute('aria-expanded', String(ab));
+    // com muitos filtros a barra quebra linha: a lista abre para a direita quando não cabe à esquerda
+    painel.style.left = painel.style.right = '';
+    if (ab && painel.getBoundingClientRect().left < 8){ painel.style.left = '0'; painel.style.right = 'auto'; }
   };
   painel.onclick = e => e.stopPropagation();
   caixas.forEach(c => c.onchange = aplica);
@@ -1048,7 +1093,8 @@ document.addEventListener('click', () => document.querySelectorAll('.painel-filt
 
 function keepMask(){
   const n = D.mats.length, k = new Uint8Array(n), M = st.mesSel, Z = st.zonaSel, U = st.utilSel, T = st.tipoSel;
-  for (let m = 0; m < n; m++) k[m] = (!M || M.has(D.tMes[m])) && (!Z || Z.has(D.zona[m])) && (!U || U.has(D.util[m])) && (!T || T.has(D.tipo[m])) ? 1 : 0;
+  const X = (D.extrasUsados || []).filter(x => st.xSel[x.k]).map(x => [D.extra[x.k], st.xSel[x.k]]);
+  for (let m = 0; m < n; m++) k[m] = (!M || M.has(D.tMes[m])) && (!Z || Z.has(D.zona[m])) && (!U || U.has(D.util[m])) && (!T || T.has(D.tipo[m])) && X.every(([a, S]) => S.has(a[m])) ? 1 : 0;
   return k;
 }
 
@@ -1375,7 +1421,8 @@ function renderRodape(){
   if (s.valorZero) partes.push(`${plural(s.valorZero, 'linha', 'linhas')} de clientes com termo sem Valor Pago não ${s.valorZero === 1 ? 'conta' : 'contam'} como pagamento.`);
   if (s.refFora) partes.push(`${plural(s.refFora, 'pagamento', 'pagamentos')} de referências fora do período (dívidas antigas) só ${s.refFora === 1 ? 'conta' : 'contam'} quando o mês é a data do pagamento.`);
   partes.push(`Termos: ${nf0.format(t.linhas)} linhas, ${plural(n, 'cliente', 'clientes')} com termo em 2026` + (t.repetidos ? ` (${plural(t.repetidos, 'termo repetido', 'termos repetidos')} no ano: vale o primeiro)` : '') +
-    (t.foraAno ? `, ${plural(t.foraAno, 'termo', 'termos')} de outros anos fora da análise` : '') + (t.semData ? `, ${plural(t.semData, 'linha', 'linhas')} sem data` : '') + '.');
+    (t.foraAno ? `, ${plural(t.foraAno, 'termo', 'termos')} de outros anos fora da análise` : '') + (t.semData ? `, ${plural(t.semData, 'linha', 'linhas')} sem data` : '') + '.' +
+    (t.colData ? ` O mês do termo vem da coluna ${esc(t.colData)}` + (t.semNeg ? `; ${plural(t.semNeg, 'termo sem', 'termos sem')} Data de negociação ${t.semNeg === 1 ? 'usou' : 'usaram'} a Data de aplicação.` : '.') : ''));
   if (semArr) partes.push(`${plural(semArr, 'cliente com termo não tem', 'clientes com termo não têm')} nenhum pagamento na base (contam como Nunca pagou; confira se o número da ligação é o mesmo nas duas bases).`);
   if (s.sit.length > 1) partes.push('Situação Pagto: ' + s.sit.slice(0, 8).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.');
   if (s.ignoradas.length) partes.push('Abas ignoradas (sem as colunas da arrecadação): ' + s.ignoradas.slice(0, 6).map(esc).join(', ') + (s.ignoradas.length > 6 ? '…' : '') + '.');
@@ -1384,6 +1431,7 @@ function renderRodape(){
 
 /* ---------- Consolidado ---------- */
 const PAGE = 100;
+const fixas = () => [...FIXED.slice(0, 5), ...(D.extrasUsados || []).map(x => x.nome), ...FIXED.slice(5)];
 const FIXED = ['Nº Ligação', 'Cliente', 'Zona', 'Utilização', 'Tipo de termo', 'Data do termo', 'Termos no ano', 'Pagos antes', 'Faixa antes', 'Pagos depois', 'Faixa depois', 'Movimento', 'Arrec. mensal antes', 'Arrec. mensal depois'];
 const faixaTxt = c => c < 0 ? 'Sem período' : FAIXAS[c];
 const movTxt = m => D.mov[m] < 0 ? 'Fora da análise' : deixou(m) ? 'Deixou de ser adimplente' : MOV[D.mov[m]];
@@ -1433,14 +1481,14 @@ function renderCons(recalc){
   $('#cCount').textContent = `${plural(list.length, 'cliente', 'clientes')} · valores pagos em cada mês pela ${P.modo === 'pag' ? 'data do pagamento' : 'referência da fatura'}`;
   $('#pInfo').textContent = `Página ${st.page + 1} de ${nf0.format(pages)}`;
   $('#pPrev').disabled = st.page === 0; $('#pNext').disabled = st.page >= pages - 1;
-  let h = '<table><thead><tr>' + FIXED.map((t, i) => `<th class="txt${i === 1 ? ' c2' : ''}">${t}</th>`).join('');
+  let h = '<table><thead><tr>' + fixas().map((t, i) => `<th class="txt${i === 1 ? ' c2' : ''}">${t}</th>`).join('');
   for (let r = 0; r < nR; r++) h += `<th>${amLabel(D.am0 + r)}</th>`;
   h += '</tr></thead><tbody>';
   const start = st.page * PAGE, end = Math.min(list.length, start + PAGE);
   for (let i = start; i < end; i++){
     const m = list[i], cA = D.cA[m], cD = D.cD[m];
     h += `<tr><td class="txt">${esc(D.mats[m])}</td><td class="txt c2">${esc(D.nomes[m])}</td><td class="txt">${esc(D.dict.zona[D.zona[m]])}</td><td class="txt">${esc(D.dict.util[D.util[m]])}</td>` +
-      `<td class="txt">${esc(D.dict.tipo[D.tipo[m]])}</td><td>${esc(D.tData[m])}</td><td>${D.tQtd[m]}</td>` +
+      `<td class="txt">${esc(D.dict.tipo[D.tipo[m]])}</td>` + (D.extrasUsados || []).map(x => `<td class="txt">${esc(x.lista[D.extra[x.k][m]])}</td>`).join('') + `<td>${esc(D.tData[m])}</td><td>${D.tQtd[m]}</td>` +
       `<td>${D.pA[m]} de ${D.nA[m]}</td><td class="txt f${cA}">${faixaTxt(cA)}</td><td>${D.pD[m]} de ${D.nD[m]}</td><td class="txt f${cD}">${faixaTxt(cD)}</td>` +
       `<td class="txt ${D.mov[m] === 1 ? 'neg' : D.mov[m] === 2 ? 'pos' : ''}">${movTxt(m)}</td><td>${nf2.format(D.mA[m])}</td><td>${nf2.format(D.mD[m])}</td>`;
     for (let r = 0; r < nR; r++){
@@ -1450,7 +1498,7 @@ function renderCons(recalc){
     }
     h += '</tr>';
   }
-  if (!list.length) h += `<tr><td class="txt" colspan="${FIXED.length + nR}">Nenhum cliente com esses filtros.</td></tr>`;
+  if (!list.length) h += `<tr><td class="txt" colspan="${fixas().length + nR}">Nenhum cliente com esses filtros.</td></tr>`;
   h += '</tbody></table>';
   const wrap = $('#tblCons'); wrap.innerHTML = h;
   const c1 = wrap.querySelector('thead th'); if (c1) wrap.style.setProperty('--c1w', c1.getBoundingClientRect().width + 'px');
@@ -1466,7 +1514,8 @@ async function exportCsv(){
   bloqueia(true); prog(true, 'Gerando o CSV', plural(list.length, 'cliente', 'clientes'), 0);
   const q = s => { s = String(s); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const dec = v => nf2.format(v).replace(/\./g, '');
-  const head = ['NUM_LIGACAO', 'CLIENTE', 'ZONA', 'UTILIZACAO', 'TIPO_TERMO', 'DATA_TERMO', 'MES_TERMO', 'TERMOS_NO_ANO', 'VALOR_TERMO',
+  const xs = D.extrasUsados || [];
+  const head = ['NUM_LIGACAO', 'CLIENTE', 'ZONA', 'UTILIZACAO', 'TIPO_TERMO', ...xs.map(x => norm(x.nome)), 'DATA_TERMO', 'MES_TERMO', 'TERMOS_NO_ANO', 'VALOR_TERMO',
     'MESES_ANTES', 'MESES_PAGOS_ANTES', 'FAIXA_ANTES', 'MESES_DEPOIS', 'MESES_PAGOS_DEPOIS', 'FAIXA_DEPOIS', 'MOVIMENTO',
     'DEIXOU_DE_SER_ADIMPLENTE', 'PAROU_DE_PAGAR', 'ARREC_MENSAL_ANTES', 'ARREC_MENSAL_DEPOIS'];
   for (let r = 0; r < nR; r++) head.push('PAGO ' + amLabel(D.am0 + r));
@@ -1475,7 +1524,7 @@ async function exportCsv(){
     let chunk = '';
     for (let x = i; x < Math.min(list.length, i + 5000); x++){
       const m = list[x];
-      const row = [D.mats[m], D.nomes[m], D.dict.zona[D.zona[m]], D.dict.util[D.util[m]], D.dict.tipo[D.tipo[m]], D.tData[m], amLabel(D.tAm[m]), D.tQtd[m], dec(D.tValor[m]),
+      const row = [D.mats[m], D.nomes[m], D.dict.zona[D.zona[m]], D.dict.util[D.util[m]], D.dict.tipo[D.tipo[m]], ...xs.map(x => x.lista[D.extra[x.k][m]]), D.tData[m], amLabel(D.tAm[m]), D.tQtd[m], dec(D.tValor[m]),
         D.nA[m], D.pA[m], faixaTxt(D.cA[m]), D.nD[m], D.pD[m], faixaTxt(D.cD[m]), movTxt(m), deixou(m) ? 'SIM' : 'NAO', parou(m) ? 'SIM' : 'NAO', dec(D.mA[m]), dec(D.mD[m])].map(q);
       for (let r = 0; r < nR; r++){ const v = V[m * nR + r]; row.push(v > 0 ? dec(v) : ''); }
       chunk += row.join(';') + '\r\n';

@@ -6,9 +6,9 @@ Painel em HTML que cruza a base de termos aplicados em 2026 com a base de arreca
 
 1. Abra o painel no Chrome ou no Edge.
 2. Clique em **📁 Conectar pasta** e escolha a pasta com:
-   - `arrecadação acumulada/`: os meses fechados (a partir de jan/2025);
-   - `arrecadação diária/`: o mês atual;
-   - a base de termos, um arquivo com **"termo" no nome** (por exemplo, `Termos aplicados 2026.xlsx`).
+   - `Arrecadação Acumulada/`: os meses fechados (a partir de jan/2025);
+   - `Arrecadação Diaria/`: o mês atual;
+   - a base de termos, um arquivo com **"termo" no nome** (por exemplo, `termos_todos_os_termos_2026-10-23.xlsx`).
 3. Aguarde a leitura. A base fica guardada no navegador e abre sozinha nas próximas vezes. Para atualizar, clique em **↻ Atualizar**.
 
 Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou Windows-1252). As subpastas são lidas e os arquivos `~$` ignorados.
@@ -17,7 +17,7 @@ Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou
 
 **Arrecadação:** Nº Ligação, Nº Nota, Mês, Ano, Valor Pago, Data Pagto., Utilização (Sub. Categ.), Zona (Localidade), Cliente, Situação Pagto. As demais colunas da exportação são lidas e ignoradas. O cabeçalho pode estar em qualquer uma das 30 primeiras linhas.
 
-**Termos:** Nº Ligação (ou Matrícula) e a data do termo (Data do Termo, Data de Aplicação ou outra coluna com "Data" no nome). Tipo de termo e Valor do termo são opcionais. Só entram os termos de 2026; se a ligação tiver mais de um termo no ano, vale o primeiro.
+**Termos:** só a aba **Termos** é lida (a aba Resumo é ignorada). Usa Matrícula (o mesmo número do Nº Ligação), Data de negociação (mês do termo; sem ela, a Data de aplicação), Tipo de atividade e Valor. Situação do termo, Faturado, Isento, Frente, Equipe, Categoria e Origem viram filtros. Só entram os termos de 2026; se a matrícula tiver mais de um termo no ano, vale o primeiro.
 
 ## Classificação
 

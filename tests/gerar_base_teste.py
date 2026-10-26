@@ -3,15 +3,16 @@
 Uso: python tests/gerar_base_teste.py PASTA_SAIDA [ligacoes] [semente]
 
 Cria, dentro de PASTA_SAIDA:
-  arrecadacao acumulada/Arrecadacao_AAAA_MM.xlsx   um arquivo por mês de pagamento, de jan/25 a set/26
-  arrecadacao diaria/Arrecadacao_2026_10.csv       mês atual (out/26, até o dia 23), em CSV ; e Windows-1252
-  Termos aplicados 2026.xlsx                       termos aplicados (com alguns de 2025 e repetidos)
+  Arrecadação Acumulada/Arrecadacao_AAAA_MM.xlsx   um arquivo por mês de pagamento, de jan/25 a set/26
+  Arrecadação Diaria/Arrecadacao_2026_10.csv       mês atual (out/26, até o dia 23), em CSV ; e Windows-1252
+  termos_todos_os_termos_2026-10-23.xlsx           abas Resumo (ignorada) e Termos, no layout da exportação real.
+                                                   O mês do termo é a Data de negociação; sem ela, a Data de aplicação
 """
 import csv
 import os
 import random
 import sys
-from datetime import date
+from datetime import date, timedelta
 
 from openpyxl import Workbook
 
@@ -26,6 +27,9 @@ CAB = ['Nº Ligação', 'Nº Nota', 'Mês', 'Ano', 'Valor Pago', 'Vencimento', '
 ZONAS = ['Miracema', 'Paracambi', 'Seropédica', 'Itaguaí', 'Mangaratiba', 'Rio Claro']
 UTIL = ['Residencial', 'Residencial Social', 'Comercial', 'Industrial', 'Pública']
 TIPOS = ['Termo de irregularidade', 'Ligação clandestina', 'Violação de hidrômetro']
+CAB_TERMO = ['Nº O.S.', 'Matrícula', 'Frente', 'Cidade', 'Zona', 'Equipe', 'Tipo de atividade', 'Status da atividade', 'Serviço adicional identificado',
+             'Data de aplicação', 'Data de notificação', 'Data de negociação', 'Nome do solicitante', 'Categoria', 'Situação da ligação', 'Situação do termo',
+             'Faturado', 'Dias', 'Faixa', 'Valor', 'Isento', 'Motivo da isenção', 'Origem', 'Arquivo da aplicação', 'Arquivo de status', 'Arquivo de faturamento']
 PERFIS = {'adimplente': .96, 'flutuante': .62, 'inadimplente': .25, 'nunca': 0.0}
 
 
@@ -44,6 +48,21 @@ for i in range(N):
     lig.append({'num': 100000 + i * 7, 'nome': f'CLIENTE {i:05d}', 'zona': rnd.choice(ZONAS), 'util': rnd.choices(UTIL, [6, 2, 2, .5, .5])[0],
                 'perfil': perfil, 'valor': round(rnd.uniform(40, 320), 2), 'contrato': 500000 + i})
 
+def linha_termo(num, t):
+    """Linha no layout real. t é o mês do termo (Data de negociação); 10% sem negociação usam a Data de aplicação."""
+    y, m = ym(t)
+    neg = date(y, m, rnd.randint(1, 28))
+    sem_neg = rnd.random() < .1
+    apl = neg if sem_neg else neg - timedelta(days=rnd.randint(5, 25))
+    isento = rnd.random() < .1
+    return [rnd.randint(10 ** 6, 10 ** 7), str(num), rnd.choice(['Frente A', 'Frente B', 'Frente C']), rnd.choice(ZONAS), rnd.choice(ZONAS),
+            rnd.choice(['Equipe 01', 'Equipe 02', 'Equipe 03', 'Equipe 04']), rnd.choice(TIPOS), 'Concluída', rnd.choice(['', 'Troca de hidrômetro']),
+            apl, apl + timedelta(days=2), None if sem_neg else neg, 'SOLICITANTE', rnd.choice(['Residencial', 'Comercial']), 'Ligada',
+            rnd.choice(['Negociado', 'Pago', 'Em aberto']), rnd.choice(['SIM', 'NÃO']), rnd.randint(0, 300), rnd.choice(['0-30', '31-60', '61+']),
+            0.0 if isento else round(rnd.uniform(300, 4000), 2), 'SIM' if isento else 'NÃO', 'Decisão administrativa' if isento else '',
+            rnd.choice(['Fiscalização', 'Denúncia']), 'apl.pdf', 'status.pdf', 'fat.pdf']
+
+
 # termos: 1 em cada 4 ligações, aplicados de jan/26 a set/26; o comportamento muda depois do termo
 termos = []
 for L in lig:
@@ -53,15 +72,13 @@ for L in lig:
         reacao = rnd.choices(['igual', 'piora', 'para', 'melhora'], [.45, .25, .15, .15])[0]
         L['depois'] = {'igual': PERFIS[L['perfil']], 'piora': PERFIS[L['perfil']] * .45, 'para': 0.0,
                        'melhora': min(.97, PERFIS[L['perfil']] + .5)}[reacao]
-        y, m = ym(t)
-        termos.append([L['num'], date(y, m, rnd.randint(1, 28)), rnd.choice(TIPOS), round(rnd.uniform(300, 4000), 2)])
+        termos.append(linha_termo(L['num'], t))
         if rnd.random() < .05:   # segundo termo no ano: o painel usa o primeiro
-            t2 = min(am(2026, 10), t + rnd.randint(1, 3)); y2, m2 = ym(t2)
-            termos.append([L['num'], date(y2, m2, rnd.randint(1, 28)), rnd.choice(TIPOS), round(rnd.uniform(300, 4000), 2)])
+            termos.append(linha_termo(L['num'], min(am(2026, 10), t + rnd.randint(1, 3))))
 for _ in range(15):   # termos de 2025 (fora da análise) e ligações sem arrecadação
-    termos.append([rnd.choice(lig)['num'], date(2025, rnd.randint(1, 12), 10), rnd.choice(TIPOS), 500.0])
+    termos.append(linha_termo(rnd.choice(lig)['num'], am(2025, rnd.randint(1, 12))))
 for i in range(8):
-    termos.append([900000 + i, date(2026, rnd.randint(1, 9), 5), rnd.choice(TIPOS), 800.0])
+    termos.append(linha_termo(900000 + i, am(2026, rnd.randint(1, 9))))
 rnd.shuffle(termos)
 
 # pagamentos: a fatura de cada mês de referência é paga ou não pelo perfil; 20% pagam no mês seguinte
@@ -88,8 +105,9 @@ for L in lig:
         por_mes.setdefault(am(2025, 6), []).append([L['num'], 1, 5, 2023, 99.9, date(2023, 5, 10), date(2025, 6, 3), date(2025, 6, 3), date(2025, 6, 3),
                                                      99.9, L['util'], L['zona'], 'NORMAL', L['contrato'], L['nome'], 'PARCELAMENTO', 'PAGO', 'BANCO 001', 'BOLETO'])
 
-os.makedirs(os.path.join(pasta, 'arrecadacao acumulada'), exist_ok=True)
-os.makedirs(os.path.join(pasta, 'arrecadacao diaria'), exist_ok=True)
+ACUM, DIARIA = 'Arrecadação Acumulada', 'Arrecadação Diaria'
+os.makedirs(os.path.join(pasta, ACUM), exist_ok=True)
+os.makedirs(os.path.join(pasta, DIARIA), exist_ok=True)
 for a in range(A0, A_FIM):
     y, m = ym(a)
     wb = Workbook(); ws = wb.active; ws.title = f'{m:02d}-{y}'
@@ -101,21 +119,26 @@ for a in range(A0, A_FIM):
     for c in ('F', 'G', 'H', 'I'):
         for cell in ws[c][3:]:
             cell.number_format = 'dd/mm/yyyy'
-    wb.save(os.path.join(pasta, 'arrecadacao acumulada', f'Arrecadacao_{y}_{m:02d}.xlsx'))
+    wb.save(os.path.join(pasta, ACUM, f'Arrecadacao_{y}_{m:02d}.xlsx'))
 
 # mês atual em CSV, com algumas linhas de setembro repetidas (o painel descarta pagamentos repetidos)
 fmt = lambda v: v.strftime('%d/%m/%Y') if isinstance(v, date) else (f'{v:.2f}'.replace('.', ',') if isinstance(v, float) else v)
-with open(os.path.join(pasta, 'arrecadacao diaria', 'Arrecadacao_2026_10.csv'), 'w', newline='', encoding='cp1252') as f:
+with open(os.path.join(pasta, DIARIA, 'Arrecadacao_2026_10.csv'), 'w', newline='', encoding='cp1252') as f:
     w = csv.writer(f, delimiter=';')
     w.writerow(CAB)
     for row in por_mes.get(A_FIM, []) + por_mes.get(A_FIM - 1, [])[:12]:
         w.writerow([fmt(v) for v in row])
 
-wb = Workbook(); ws = wb.active; ws.title = 'Termos'
-ws.append(['Nº Ligação', 'Data do Termo', 'Tipo de Termo', 'Valor do Termo'])
+# aba Resumo antes da aba Termos, com uma tabela que tem Matrícula: precisa ser ignorada pelo painel
+wb = Workbook(); rs = wb.active; rs.title = 'Resumo'
+rs.append(['Matrícula', 'Data de negociação', 'Valor'])
+rs.append(['999999', date(2026, 5, 1), 1.0])
+ws = wb.create_sheet('Termos')
+ws.append(CAB_TERMO)
 for t in termos:
     ws.append(t)
-for cell in ws['B'][1:]:
-    cell.number_format = 'dd/mm/yyyy'
-wb.save(os.path.join(pasta, 'Termos aplicados 2026.xlsx'))
+for c in ('J', 'K', 'L'):
+    for cell in ws[c][1:]:
+        cell.number_format = 'dd/mm/yyyy'
+wb.save(os.path.join(pasta, 'termos_todos_os_termos_2026-10-23.xlsx'))
 print(f'{N} ligações, {sum(len(v) for v in por_mes.values())} pagamentos, {len(termos)} linhas de termos em {pasta}')

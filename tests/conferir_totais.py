@@ -2,7 +2,8 @@
 
 Uso: python tests/conferir_totais.py PASTA [ULTIMO_MES=AAAA-MM] [modo=ref|pag] [inicio=0|1]
 
-Lê todos os .xlsx e .csv da pasta e subpastas. O arquivo com "termo" no nome é a base de termos.
+Lê todos os .xlsx e .csv da pasta e subpastas. O arquivo com "termo" no nome é a base de termos: só a aba Termos,
+e o mês do termo é a Data de negociação (sem ela, a Data de aplicação).
 """
 import csv
 import os
@@ -58,7 +59,7 @@ def num(v):
         return 0.0
 
 
-def tabelas(caminho):
+def tabelas(caminho, so_termos=False):
     if caminho.lower().endswith('.csv'):
         raw = open(caminho, 'rb').read()
         try:
@@ -68,14 +69,15 @@ def tabelas(caminho):
         yield list(csv.reader(txt.splitlines(), delimiter=';'))
     else:
         wb = load_workbook(caminho, read_only=True)
-        for ws in wb.worksheets:
+        abas = [ws for ws in wb.worksheets if so_termos and norm(ws.title) == 'TERMOS'] or wb.worksheets
+        for ws in abas:
             yield list(ws.iter_rows(values_only=True))
 
 
 def com_cabecalho(linhas):
     for i, l in enumerate(linhas[:30]):
         nomes = [norm(c) for c in l]
-        if 'N_LIGACAO' in nomes:
+        if 'N_LIGACAO' in nomes or 'MATRICULA' in nomes:
             return nomes, linhas[i + 1:]
     return None, []
 
@@ -85,13 +87,14 @@ termos = {}
 for a in arquivos:
     if 'termo' not in os.path.basename(a).lower():
         continue
-    for t in tabelas(a):
+    for t in tabelas(a, so_termos=True):
         h, linhas = com_cabecalho(t)
         if not h:
             continue
-        il, idt = h.index('N_LIGACAO'), next(i for i, n in enumerate(h) if 'DATA' in n)
+        il = h.index('MATRICULA') if 'MATRICULA' in h else h.index('N_LIGACAO')
+        ineg, iapl = h.index('DATA_DE_NEGOCIACAO'), h.index('DATA_DE_APLICACAO')
         for l in linhas:
-            k, d = lig(l[il]), data(l[idt])
+            k, d = lig(l[il]), data(l[ineg]) or data(l[iapl])
             if not k or not d or d[0] // 12 != 2026:
                 continue
             ordem = d[1][6:] + d[1][3:5] + d[1][:2]
