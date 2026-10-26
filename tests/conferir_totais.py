@@ -189,6 +189,7 @@ def depois(p, n):
 
 
 M = [[0] * 5 for _ in range(4)]
+motivos = [0] * 5   # insuficiente: 1 recente, 2 outro termo, 3 sem dados, 4 sem conta
 c = dict(total=0, comp=0, melhorou=0, piorou=0, igual=0, insuf=0, semhist=0, naopag=0, recup=0, mA=0.0, mD=0.0)
 for k, evs in termos.items():
     meses = sorted(evs)
@@ -199,15 +200,19 @@ for k, evs in termos.items():
             continue
         c['total'] += 1
         fim = min(ult, t + 12)
-        if i + 1 < len(meses):
-            fim = min(fim, meses[i + 1] - 1)
+        corte = False
+        if i + 1 < len(meses) and meses[i + 1] - 1 < fim:
+            fim, corte = meses[i + 1] - 1, True
         ja = [m for m in range(t - 12, t) if ok(m)]
         jd = [m for m in range(t + 1, fim + 1) if ok(m)]
         va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
         oa, od = [pago(k, m) for m in ja if conta(k, m)], [pago(k, m) for m in jd if conta(k, m)]   # meses observados
         ca, cd = antes(sum(oa), len(oa)), depois(sum(od), len(od))
+        if cd == 4:
+            motivos[1 if min(ult, t + 12) - t < MIN else 2 if corte and fim - t < MIN else 3 if len(jd) < MIN else 4] += 1
         if ca < 0:
             c['semhist'] += 1
+            c['insuf'] += cd == 4   # insuficiente conta também quem não tem histórico antes (como a matriz)
             continue
         M[ca][cd] += 1
         if cd == 4:
@@ -224,6 +229,7 @@ sem = [rot(m) for m in range(min_am, ult + 1) if not ok(m)]
 print(f'Pagamentos de {rot(min_am)} a {rot(max_am)}, mês vigente {rot(vig)}, análise até {rot(ult)}, tolerância {TOL}, modo {MODO}, unidade {UNIDADE}, faturamento {"sim" if USA_FAT else "não"}' + (f', meses sem dados: {", ".join(sem)}' if sem else ''))
 print(f"Total: {c['total']} | suficiente: {c['comp']} | melhoraram: {c['melhorou']} | pioraram: {c['piorou']} | permaneceram: {c['igual']} | insuficiente: {c['insuf']} | sem histórico: {c['semhist']}")
 print(f"Recuperados: {c['recup']} de {c['naopag']} | média mensal por cliente comparável: antes R$ {c['mA'] / max(1, c['comp']):,.2f}, depois R$ {c['mD'] / max(1, c['comp']):,.2f}")
+print(f'Motivos do acompanhamento insuficiente: recente {motivos[1]}, outro termo {motivos[2]}, sem dados {motivos[3]}, sem conta {motivos[4]}')
 print('Matriz (linhas = antes, colunas = depois):', ' '.join(f'{f[:6]:>7}' for f in FAIXAS))
 for a in range(4):
     print(f'  {FAIXAS[a]:<13}', ' '.join(f'{x:>7}' for x in M[a]), f'| {sum(M[a]):>6}')

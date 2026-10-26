@@ -58,6 +58,8 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 - **Antes:** os 12 meses anteriores ao mês do termo (o mês do termo não entra). 10 a 12 pagos: Adimplente; 6 a 9: Flutuante; 1 a 5: Inadimplente; 0: Nunca pagou. Com meses sem dados, a mesma regra em proporção (≥ 10/12, ≥ 6/12).
 - **Depois:** do mês seguinte ao termo até o último mês completo, no máximo 12 meses. % de meses pagos = pagos / observados. Adimplente ≥ 83,3%; Flutuante ≥ 50%; Inadimplente > 0%; Nunca pagou 0%. Menos de 3 meses observados: **Acompanhamento insuficiente**, fora de melhora, piora e permanência. Limiares e mínimo são parâmetros.
 - **Resultado:** ordem Adimplente → Flutuante → Inadimplente → Nunca pagou; ir para trás é melhora, para frente é piora.
+- **Acompanhamento insuficiente (v2.5):** conta todos com menos meses observados que o mínimo depois do termo, **inclusive os sem histórico antes**; é o mesmo número no card, na coluna da matriz, no gráfico de perfil e nas tabelas (antes da v2.5 o card e o gráfico deixavam os sem histórico de fora e o usuário viu 835 na matriz e 677 no gráfico). `D.motivo` diz o porquê: 1 termo recente (menos meses fechados que o mínimo entre o termo e o último mês), 2 período encurtado por outro termo, 3 meses sem dados, 4 sem conta a pagar no faturamento depois do termo. `D.motivoA`: sem histórico por falta de dados (1) ou por não ter conta a pagar nos 12 meses antes (2). Os motivos aparecem abaixo da matriz e na coluna Motivo da tabela de clientes.
+- **Premissa em revisão (v2.5):** na base real, 835 de 1.328 clientes ficaram com acompanhamento insuficiente e 183 sem histórico antes. O usuário pediu para rever a premissa se isso estiver certo; os motivos foram incluídos para decidir (perguntar antes de mudar mínimo de meses, data do termo ou início do período depois).
 - **Comparáveis:** com classificação antes e depois (não insuficiente). São o denominador de melhora, piora e permanência.
 - **Recuperados:** Inadimplente ou Nunca pagou antes que passaram a Adimplente ou Flutuante, sobre os comparáveis desses dois grupos. "Pagaram ao menos 1 mês" é mostrado separado (registro de pagamento, não recuperação).
 - **Sem faturamento** (base ausente ou parâmetro desligado): todo mês é observado, e mês sem pagamento conta como não pago mesmo sem conta a pagar; o painel mostra esse aviso.
@@ -65,7 +67,7 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 ## Layout (v2.0)
 
 - Barra de filtros com os 7 principais e "Mais filtros"; botão "Limpar filtros".
-- Resumo: 7 cards (total, acompanhamento suficiente, melhoraram, pioraram, permaneceram, insuficiente, % recuperados), com denominadores; card de regras e limitação, com parâmetros; **matriz antes × depois** (quantidade ou % da linha; verde melhora, amarelo permanece, vermelho piora, cinza insuficiente; clique abre a tabela de clientes); gráfico A (perfil antes e depois, quantidade ou %); gráfico C (recuperação); gráfico B (resultado por mês de aplicação, com meses acompanhados); gráfico D (média mensal por cliente antes e depois, por classe anterior); tabela por Município / Tipo / Zona / Utilização; % que pagou mês a mês em relação ao termo; rodapé.
+- Resumo: 7 cards (total, acompanhamento suficiente, melhoraram, pioraram, permaneceram, insuficiente, % recuperados), com denominadores; card de regras e limitação, com parâmetros; **matriz antes × depois** (quantidade ou % da linha; verde melhora, amarelo permanece, vermelho piora, cinza insuficiente; clique abre a tabela de clientes); gráfico A (perfil antes e depois, quantidade ou %, na mesma base da matriz, com as categorias Sem histórico antes e Acompanhamento insuficiente); gráfico C (recuperação); gráfico B (resultado por mês de aplicação, com meses acompanhados); gráfico D (média mensal por cliente antes e depois, por classe anterior); tabela por Município / Tipo / Zona / Utilização; % que pagou mês a mês em relação ao termo; rodapé.
 - Clientes: uma linha por unidade, com classificações, meses observados e pagos, meses sem conta, % pago depois, resultado, valores e o valor pago em cada mês (laranja-claro sem pagamento no período, contorno no mês do termo, "s/d" sem dados, "s/c" sem conta). Exporta CSV (`;`, BOM, vírgula decimal), com colunas PAGO e CONTA por mês.
 - Favicon (v2.1): SVG dentro do próprio `index.html` (lupa branca com gota verde-água num quadrado marinho `#14375e`), simplificado a partir do modelo do usuário (sem a moeda e a segunda gota, que somem em 16 px).
 - Cores de resultado em `:root`: `--melhora #1F8A4C`, `--permanece #E0B43C`, `--piora #C62828`, `--insuf #9AA6B2` (pedido do usuário na v2.0).
@@ -73,7 +75,7 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 ## Versões anteriores
 
 - v1.1 guardada em `versoes/v1.1/index.html` (abre pelo GitHub Pages em `/versoes/v1.1/`) e no branch `versao-1.1`.
-- v2.0 guardada em `versoes/v2.0/index.html` e no branch `versao-2.0`; v2.1, v2.2 e v2.3 em `versoes/` e nos branches `versao-2.1`, `versao-2.2` e `versao-2.3`. Guarde a versão anterior assim a cada mudança grande. As tags `v1.0` e `v1.1` existem no repositório local, mas o envio de tags é bloqueado pelo proxy da sessão.
+- v2.0 guardada em `versoes/v2.0/index.html` e no branch `versao-2.0`; v2.1 a v2.4 em `versoes/` e nos branches `versao-2.1` a `versao-2.4`. Guarde a versão anterior assim a cada mudança grande. As tags `v1.0` e `v1.1` existem no repositório local, mas o envio de tags é bloqueado pelo proxy da sessão.
 
 ## Pendências
 
@@ -92,10 +94,10 @@ python tests/conferir_totais.py base_teste 2026-09 cred evento 1 1  # mês vigen
 ```
 
 Valores de referência (v2.2) com a base sintética padrão (3000 ligações, semente 7, com Faturamento; 3% dos pagamentos com 2 meses de atraso):
-- padrão (vigente out/26): 636 clientes (23 sem histórico), 364 comparáveis, 30 melhoraram, 178 pioraram, 156 permaneceram, 249 insuficientes, 13 recuperados de 83; média mensal R$ 130,08 antes e R$ 96,57 depois;
-- atraso só no mês: 49, 165, 150, 249; 18 de 117;
+- padrão (vigente out/26): 636 clientes (23 sem histórico), 364 comparáveis, 30 melhoraram, 178 pioraram, 156 permaneceram, 272 insuficientes (213 termo recente, 17 outro termo, 42 sem conta), 13 recuperados de 83; média mensal R$ 130,08 antes e R$ 96,57 depois;
+- atraso só no mês: 49, 165, 150, 272; 18 de 117;
 - sem faturamento: 406 comparáveis, 58, 178, 170, 230; 23 de 131;
-- vigente set/26, por evento: 582 termos, 325 comparáveis, 32, 156, 137, 236; 15 de 75.
+- vigente set/26, por evento: 582 termos, 325 comparáveis, 32, 156, 137, 257 (207, 14, 36); 15 de 75.
 
 No teste com Playwright, `setInputFiles` descarta arquivos cujo caminho tem acento (as pastas "Arrecadação…"): copie a base para pastas sem acento antes de testar.
 

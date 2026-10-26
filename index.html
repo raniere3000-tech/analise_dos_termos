@@ -299,7 +299,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.4</span>
+      <span class="versao" id="versao" title="Versão do painel">v2.5</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -1178,7 +1178,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.4';
+const VERSAO_SITE = '2.5';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1400,7 +1400,7 @@ function derive(){
   D.scA = new Uint8Array(n); D.scD = new Uint8Array(n);   // meses sem conta a pagar, antes e depois
   D.mesesA = new Uint8Array(n); D.mesesD = new Uint8Array(n);   // meses do período com dados (base da média mensal)
   D.sA = new Float64Array(n); D.sD = new Float64Array(n); D.mA = new Float64Array(n); D.mD = new Float64Array(n);
-  D.cA = new Int8Array(n); D.cD = new Int8Array(n); D.res = new Int8Array(n);
+  D.cA = new Int8Array(n); D.cD = new Int8Array(n); D.res = new Int8Array(n); D.motivo = new Int8Array(n); D.motivoA = new Int8Array(n);
   for (let u = 0; u < n; u++){
     const e = ev[u], m = D.eMat[e], b = m * nR, t = D.eAm[e] - D.am0;
     D.uMat[u] = m; D.tI[u] = t;
@@ -1433,6 +1433,12 @@ function derive(){
     const cA = classeAntes(pA, nA), cD = classeDepois(pD, nD);
     D.cA[u] = cA; D.cD[u] = cD;
     D.res[u] = cA < 0 ? -1 : cD === 4 ? 3 : cD > cA ? 1 : cD < cA ? 2 : 0;
+    // por que ficou com acompanhamento insuficiente: 1 termo recente (menos meses fechados que o mínimo depois do termo),
+    // 2 período encurtado por outro termo, 3 meses sem dados na base, 4 meses sem conta a pagar no faturamento
+    const potencial = Math.max(0, Math.min(L, t + 12) - t);
+    D.motivo[u] = cD !== 4 ? 0 : potencial < P.min ? 1 : D.corte[u] && fim - t < P.min ? 2 : mesesD < P.min ? 3 : 4;
+    // sem histórico antes: 1 nenhum mês com dados antes do termo, 2 nenhuma conta a pagar nos 12 meses antes
+    D.motivoA[u] = cA >= 0 ? 0 : mesesA === 0 ? 1 : 2;
   }
 }
 const comparavel = u => D.res[u] >= 0 && D.res[u] <= 2;
@@ -1519,7 +1525,9 @@ function agrega(k, chave, nK){
     const g = chave(u), r = D.res[u];
     o.tot[g]++;
     o.nDtot[g] += D.nD[u]; if (D.nD[u] < o.nDmin[g]) o.nDmin[g] = D.nD[u]; if (D.nD[u] > o.nDmax[g]) o.nDmax[g] = D.nD[u];
-    if (r < 0){ o.semHist[g]++; continue; }
+    // acompanhamento insuficiente conta todos com menos meses que o mínimo depois do termo, com ou sem histórico antes
+    // (o mesmo número da coluna da matriz e do gráfico de perfil)
+    if (r < 0){ o.semHist[g]++; if (D.cD[u] === 4) o.insuf[g]++; continue; }
     if (r === 3){ o.insuf[g]++; continue; }
     o.comp[g]++;
     if (r === 2) o.melhorou[g]++; else if (r === 1) o.piorou[g]++; else o.igual[g]++;
@@ -1690,7 +1698,7 @@ function renderResumo(){
     kpi('Melhoraram o perfil', nf0.format(g('melhorou')), `${pct(div(g('melhorou'), comp))} de ${nf0.format(comp)} comparáveis`, 'melhora'),
     kpi('Pioraram o perfil', nf0.format(g('piorou')), `${pct(div(g('piorou'), comp))} de ${nf0.format(comp)} comparáveis`, 'piora'),
     kpi('Permaneceram na mesma classificação', nf0.format(g('igual')), `${pct(div(g('igual'), comp))} de ${nf0.format(comp)} comparáveis`, 'permanece'),
-    kpi('Acompanhamento insuficiente', nf0.format(g('insuf')), `${pct(div(g('insuf'), tot))} do total · menos de ${plural(P.min, 'mês', 'meses')}`, 'insuf'),
+    kpi('Acompanhamento insuficiente', nf0.format(g('insuf')), `${pct(div(g('insuf'), tot))} do total · menos de ${plural(P.min, 'mês', 'meses')} depois`, 'insuf'),
     kpi('Recuperados entre inadimplentes e nunca pagou', pct(div(g('recup'), g('naoPag'))), `${nf0.format(g('recup'))} de ${nf0.format(g('naoPag'))} passaram a Adimplente ou Flutuante`, 'melhora')
   ].join('');
   renderRegra();
@@ -1765,32 +1773,61 @@ function renderMatriz(k){
   const o = agrega(k, () => 0, 1), g = x => o[x][0];
   $('#matDestaques').innerHTML =
     `<span class="neg">Adimplentes que pioraram: <b>${nf0.format(g('adimPiorou'))}</b> de ${nf0.format(g('adimA'))} comparáveis (${pct(div(g('adimPiorou'), g('adimA')))}), ${nf0.format(g('adimInad'))} deles para Inadimplente ou Nunca pagou</span>` +
-    `<span class="pos">Inadimplentes e nunca pagou que passaram a pagar com regularidade: <b>${nf0.format(g('recup'))}</b> de ${nf0.format(g('naoPag'))} (${pct(div(g('recup'), g('naoPag')))})</span>`;
+    `<span class="pos">Inadimplentes e nunca pagou que passaram a pagar com regularidade: <b>${nf0.format(g('recup'))}</b> de ${nf0.format(g('naoPag'))} (${pct(div(g('recup'), g('naoPag')))})</span>` +
+    motivosHtml(k);
+}
+const MOTIVO = ['', 'termo recente', 'período encurtado por outro termo', 'meses sem dados na base', 'sem conta a pagar no faturamento depois do termo'];
+const MOTIVO_A = ['', 'sem dados na base antes do termo', 'sem conta a pagar no faturamento nos 12 meses antes'];
+// por que há acompanhamento insuficiente e sem histórico (respeita os filtros)
+function motivosHtml(k){
+  const q = new Float64Array(5), qa = new Float64Array(3), recentes = new Map();
+  for (let u = 0; u < D.n; u++){
+    if (!k[u]) continue;
+    q[D.motivo[u]]++; qa[D.motivoA[u]]++;
+    if (D.motivo[u] === 1){ const a = D.eAm[D.U[u]]; recentes.set(a, (recentes.get(a) || 0) + 1); }
+  }
+  const ins = q[1] + q[2] + q[3] + q[4], sh = qa[1] + qa[2];
+  let h = '';
+  if (ins){
+    const meses = [...recentes.keys()].sort((a, b) => a - b);
+    const partes = [1, 2, 3, 4].filter(i => q[i]).map(i => `<b>${nf0.format(q[i])}</b> ${MOTIVO[i]}` +
+      (i === 1 && meses.length ? ` (termos de ${amLabel(meses[0])}${meses.length > 1 ? ' a ' + amLabel(meses[meses.length - 1]) : ''}, com menos de ${plural(P.min, 'mês fechado', 'meses fechados')} até ${amLabel(D.am0 + D.L)})` : ''));
+    h += `<span>Acompanhamento insuficiente (${nf0.format(ins)}): ${partes.join('; ')}</span>`;
+  }
+  if (sh) h += `<span>Sem histórico antes (${nf0.format(sh)}): ${[1, 2].filter(i => qa[i]).map(i => `<b>${nf0.format(qa[i])}</b> ${MOTIVO_A[i]}`).join('; ')}</span>`;
+  return h;
 }
 
 // Gráfico A: os mesmos clientes em cada classificação antes e depois do termo (só quem tem histórico antes)
+// Mesma base da matriz: todos os clientes, inclusive os sem histórico antes (só existem antes) e os com acompanhamento
+// insuficiente (só existem depois). Assim os totais batem com a matriz.
 function renderA(k){
-  const antes = new Float64Array(5), depois = new Float64Array(5); let base = 0;
-  for (let u = 0; u < D.n; u++){ if (!k[u] || D.cA[u] < 0) continue; base++; antes[D.cA[u]]++; depois[D.cD[u]]++; }
+  const antes = new Float64Array(6), depois = new Float64Array(6); let base = 0;
+  for (let u = 0; u < D.n; u++){ if (!k[u]) continue; base++; antes[D.cA[u] < 0 ? 4 : D.cA[u]]++; depois[D.cD[u] === 4 ? 5 : D.cD[u]]++; }
   const emPct = st.a === 'pct', f = v => emPct ? (base ? v / base * 100 : 0) : v;
-  const labels = DEPOIS.map(x => x === 'Acompanhamento insuficiente' ? 'Acomp. insuficiente' : x);
-  const vA = [...antes].map((v, i) => i === 4 ? null : f(v)), vD = [...depois].map(f);
+  const NOMES = [...FAIXAS, 'Sem histórico antes', 'Acompanhamento insuficiente'];
+  const labels = [...FAIXAS, 'Sem histórico antes', 'Acomp. insuficiente'];
+  const soAntes = i => i === 5, soDepois = i => i === 4;   // categorias que só existem num dos períodos
+  const semHist = antes[4] > 0;
+  if (!semHist){ labels.splice(4, 1); NOMES.splice(4, 1); }
+  const idx = semHist ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 5];
+  const vA = idx.map(i => soAntes(i) ? null : f(antes[i])), vD = idx.map(i => soDepois(i) ? null : f(depois[i]));
   const fmt = v => emPct ? nf1.format(v) + '%' : nf0.format(v);
   const el = $('#blocoA');
   el.innerHTML = graficoAgrupado(labels, [{ values: vA, cor: COR.antes }, { values: vD, cor: COR.depois, corRot: '#176b9c' }],
     { aria: 'Clientes por classificação antes e depois do termo', fmt, eixo: v => emPct ? nf0.format(v) + '%' : compacto(v), min: emPct ? 10 : 1 }) +
     tabelaAlinhada(labels, [
-      { nome: 'Antes do termo', vals: [...antes].map((v, i) => i === 4 ? null : v), fmt: v => nf0.format(v), cor: COR.antes },
-      { nome: 'Depois do termo', vals: [...depois], fmt: v => nf0.format(v), cor: COR.depois },
-      { nome: '% antes', vals: [...antes].map((v, i) => i === 4 ? null : div(v, base)), fmt: pct, cls: 'mudo' },
-      { nome: '% depois', vals: [...depois].map(v => div(v, base)), fmt: pct, cls: 'mudo' },
-      { nome: 'Diferença', vals: [...depois].map((v, i) => i === 4 ? null : v - antes[i]), fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + nf0.format(Math.abs(v)), cls: 'forte' }
+      { nome: 'Antes do termo', vals: idx.map(i => soAntes(i) ? null : antes[i]), fmt: v => nf0.format(v), cor: COR.antes },
+      { nome: 'Depois do termo', vals: idx.map(i => soDepois(i) ? null : depois[i]), fmt: v => nf0.format(v), cor: COR.depois },
+      { nome: '% antes', vals: idx.map(i => soAntes(i) ? null : div(antes[i], base)), fmt: pct, cls: 'mudo' },
+      { nome: '% depois', vals: idx.map(i => soDepois(i) ? null : div(depois[i], base)), fmt: pct, cls: 'mudo' },
+      { nome: 'Diferença', vals: idx.map(i => i >= 4 ? null : depois[i] - antes[i]), fmt: v => (v > 0 ? '+' : v < 0 ? '−' : '') + nf0.format(Math.abs(v)), cls: 'forte' }
     ]);
-  el.dica = { n: 5, titulo: i => DEPOIS[i], linhas: i => [
-    { nome: 'Antes do termo', valor: i === 4 ? '–' : `${nf0.format(antes[i])} (${pct(div(antes[i], base))})`, cor: COR.antes },
-    { nome: 'Depois do termo', valor: `${nf0.format(depois[i])} (${pct(div(depois[i], base))})`, cor: COR.depois }
-  ] };
-  $('#aNota').textContent = `Os mesmos ${plural(base, nomeUn().slice(0, -1), nomeUn())} nos dois períodos; o percentual usa esse total. Depois do termo, quem tem menos de ${plural(P.min, 'mês', 'meses')} fica em Acompanhamento insuficiente.`;
+  el.dica = { n: idx.length, titulo: j => NOMES[j], linhas: j => { const i = idx[j]; return [
+    { nome: 'Antes do termo', valor: soAntes(i) ? '–' : `${nf0.format(antes[i])} (${pct(div(antes[i], base))})`, cor: COR.antes },
+    { nome: 'Depois do termo', valor: soDepois(i) ? '–' : `${nf0.format(depois[i])} (${pct(div(depois[i], base))})`, cor: COR.depois }
+  ]; } };
+  $('#aNota').textContent = `Os mesmos ${plural(base, nomeUn().slice(0, -1), nomeUn())} da matriz nos dois períodos; o percentual usa esse total. Sem histórico antes só existe antes do termo; Acompanhamento insuficiente (menos de ${plural(P.min, 'mês', 'meses')}) só existe depois.`;
 }
 
 // Gráfico C: recuperação de quem era Inadimplente ou Nunca pagou antes do termo
@@ -2027,6 +2064,7 @@ function colunas(){
     usaFat() ? { t: 'Meses sem conta depois', h: 'MESES_SEM_CONTA_DEPOIS', v: u => D.scD[u] } : null,
     { t: '% pago depois', h: 'PCT_PAGO_DEPOIS', v: u => pctD(u) == null ? '–' : nf1.format(pctD(u) * 100) + '%', csv: u => pctD(u) == null ? '' : nf1.format(pctD(u) * 100) },
     { t: 'Resultado', h: 'RESULTADO', v: resTxt, cls: u => 'r' + (D.res[u] < 0 ? 3 : D.res[u]), txt: 1 },
+    { t: 'Motivo', h: 'MOTIVO', v: u => D.motivo[u] ? MOTIVO[D.motivo[u]] : D.motivoA[u] ? MOTIVO_A[D.motivoA[u]] : '', txt: 1 },
     { t: 'Valor pago antes', h: 'VALOR_PAGO_ANTES', v: u => nf2.format(D.sA[u]), csv: u => decCsv(D.sA[u]) },
     { t: 'Valor pago depois', h: 'VALOR_PAGO_DEPOIS', v: u => nf2.format(D.sD[u]), csv: u => decCsv(D.sD[u]) },
     { t: 'Média mensal antes', h: 'MEDIA_MENSAL_ANTES', v: u => nf2.format(D.mA[u]), csv: u => decCsv(D.mA[u]) },
