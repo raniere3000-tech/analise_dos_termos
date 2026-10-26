@@ -45,13 +45,17 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 - **IndexedDB** `painel-termos-2026`, chaves `atual` (base) e `pasta`. Base lida por versão anterior (sem `eMat`) pede nova leitura. Parâmetros em `localStorage` (`painel-termos-param-v4`). O mês vigente (`st.vig`) não é guardado: o painel abre sempre no mês de hoje.
 - **`derive()`** monta as unidades (`D.U`: eventos analisados) e classifica: `nA/pA/sA` meses, meses pagos e valor antes; `nD/pD/sD` depois; `cA` (0 Adimplente, 1 Flutuante, 2 Inadimplente, 3 Nunca pagou, -1 sem histórico); `cD` (0 a 3, 4 acompanhamento insuficiente); `res` (0 permaneceu, 1 piorou, 2 melhorou, 3 insuficiente, -1 sem histórico); `mA/mD` médias mensais; `fimD` último mês do período depois; `corte` (encurtado por termo seguinte); `semDados` por mês.
 - **`agrega(k, chave, nK)`** soma por grupo (total, mês do termo, classe anterior, município, tipo, zona, utilização).
-- **Filtros (`defFiltros`)**: principais (Mês do termo, Município, Tipo de irregularidade, Antes, Depois, Resultado, Meses acompanhados) e "Mais filtros" (Zona, Utilização, Situação do termo, Faturado, Isento, Frente, Equipe, Categoria, Origem). Todos são listas de seleção e valem para cards, matriz, gráficos e tabela.
+- **Filtros (v2.7, `defFiltros`)**: cada filtro tem grupo (Termo, Resultado, Cadastro e ligação, Equipe e origem), lista e `get(u)`; os que existem para a amostra sem termo têm também `getC(u)`. Os **principais** (`PRINCIPAIS`, escolhidos pelo usuário: Mês do termo, Situação do termo, Isento, Antes, Depois, Resultado) ficam à vista na faixa "Filtros"; **todos** ficam na gaveta "Todos os filtros" (`montaGaveta()`), agrupados. Filtros ativos aparecem como etiquetas removíveis (`marcaAtivos()`). A aba Clientes usa os filtros gerais (não tem mais filtros próprios); clicar num número da matriz aplica os filtros Antes e Depois.
+- **Abas e configuração (v2.7):** barra de abas própria (Resumo, Clientes, Comparação sem termo), separada da faixa "Configuração da análise" (Base de cálculo, Mês vigente, Data do termo, Mínimo de meses depois) e da faixa "Filtros".
+- **Amostra de comparação (v2.7):** o worker registra também matrículas sem termo sorteadas por `hashLig()` (FNV-1a do número da ligação, 5%, até 60 mil; `AMOSTRA_PCT`, `AMOSTRA_MAX`), vistas na arrecadação ou no faturamento (`Arrecadacao.registra()`). `D.nTermo` separa as matrículas com termo (índices menores) das da amostra. Na página, cada matrícula da amostra recebe um mês de referência sorteado (pelo mesmo hash) entre os meses das unidades com termo e passa por `classifica()`, a mesma função dos clientes com termo; o resultado fica em `D.C`.
 
 ## Regras de negócio (v2.0, definidas com o usuário)
 
 - **Unidade de análise:** padrão é a matrícula única com o primeiro termo do ano, **acompanhado até o fim mesmo que venha outro termo** (v2.6, definido pelo usuário); o painel avisa quantas matrículas são reincidentes e tem o filtro Reincidente. Por evento (parâmetro), o período depois termina no mês anterior ao termo seguinte da mesma matrícula.
 - **Ligação cortada depois do termo (v2.6, definido pelo usuário):** com faturamento, para matrícula cortada, os meses do período depois sem conta e posteriores à última conta contam como observados e **não pagos** (`D.ncD`). Assim, quem não pagou nada fica Nunca pagou e quem pagou parte fica Inadimplente ou Flutuante. Só vale para o período depois. Coluna e filtro "Ligação cortada" e "corte" na grade de clientes.
 - **Mínimo de meses depois:** na barra superior (v2.6), padrão 3.
+- **Base de cálculo (v2.7, definido pelo usuário):** botões "Com faturamento" / "Só arrecadação" na faixa de configuração (`P.fat`, guardado no navegador: abre com a última escolha). Só arrecadação = todo mês conta e o mês é pago se houve crédito nele (Data Crédito); sem meses sem conta, sem conta paga pelo vencimento e sem regra de corte.
+- **Comparação sem termo (v2.7, definido pelo usuário, em aba separada):** mesmos indicadores para os clientes com termo e para a amostra sem termo, com a diferença em pontos percentuais; gráficos de quem piorou e melhorou por classificação antes; matrizes em % da linha. Na aba só valem os filtros que existem para os dois grupos (os outros são listados como ignorados). Aviso quando a amostra tem menos de 200 comparáveis.
 - **Mês vigente (v2.2, definido pelo usuário):** seletor na barra superior, abre no mês de hoje. É o mês ainda não fechado: termos com mês ≥ mês vigente ficam fora (`D.foraVig`), a análise vai até o mês anterior (`idxUltimo()`), e os créditos do mês vigente (arrecadação diária) só servem para pagar com atraso contas dos meses anteriores. Contas com vencimento no mês vigente não entram.
 - **Conta paga (v2.2, definido pelo usuário):** com faturamento e a coluna Vencimento na arrecadação (`D.porConta`), a conta que vence no mês r está paga se entrou crédito daquela conta (mesmo mês de vencimento na arrecadação) até o fim do mês r + tolerância e no máximo no mês vigente. Tolerância padrão: até o fim do mês seguinte (parâmetro "Pagamento com atraso aceito": só no mês, mês seguinte, 2 meses, qualquer data). Vale igual para todos os meses. Pagamento muito atrasado (dívida negociada depois do termo) não limpa o período antes do termo.
 - **Mês pago sem faturamento** (ou sem a coluna Vencimento): soma do Valor Pago no mês > 0, pela **Data Crédito** (definido pelo usuário na v2.1); parâmetros permitem a Data Pagto. ou a referência da fatura (Mês/Ano). Com faturamento e Vencimento, esse parâmetro fica desligado na tela.
@@ -79,13 +83,12 @@ Identificar os clientes que receberam termos (sanções) em 2026 e, a partir do 
 ## Versões anteriores
 
 - v1.1 guardada em `versoes/v1.1/index.html` (abre pelo GitHub Pages em `/versoes/v1.1/`) e no branch `versao-1.1`.
-- v2.0 guardada em `versoes/v2.0/index.html` e no branch `versao-2.0`; v2.1 a v2.5 em `versoes/` e nos branches `versao-2.1` a `versao-2.5`. O branch `v25-envio` sobrou de um teste de envio (o proxy não deixa apagar branches); pode ser apagado pelo GitHub. Guarde a versão anterior assim a cada mudança grande. As tags `v1.0` e `v1.1` existem no repositório local, mas o envio de tags é bloqueado pelo proxy da sessão.
+- v2.0 guardada em `versoes/v2.0/index.html` e no branch `versao-2.0`; v2.1 a v2.6 em `versoes/` e nos branches `versao-2.1` a `versao-2.6`. O branch `v25-envio` sobrou de um teste de envio (o proxy não deixa apagar branches); pode ser apagado pelo GitHub. Guarde a versão anterior assim a cada mudança grande. As tags `v1.0` e `v1.1` existem no repositório local, mas o envio de tags é bloqueado pelo proxy da sessão.
 
 ## Pendências
 
 - **Faturamento não reconhecido na base real (v2.2):** o aviso dizia "a pasta não tem base de faturamento", com os CSV na pasta. A v2.3 lê mais formatos e mostra o motivo; pedir ao usuário o texto do aviso ou as primeiras linhas de um CSV, se continuar.
 - Conferir com a base real: nomes das rubricas (`VALOR DE AGUA`, `VALOR DE ESGOTO`), formato da Data de Vencimento e da Data Crédito, se o Vencimento da arrecadação bate com a Data de Vencimento do faturamento (na grade de Clientes, a dica do mês mostra em que mês a conta foi paga), e as situações de conta listadas no rodapé.
-- Ideia não pedida (perguntar antes): comparar com um grupo de clientes sem termo.
 
 ## Como validar
 
@@ -99,12 +102,13 @@ python tests/conferir_totais.py base_teste 2026-10 cred mat 1 1 apl    # mês do
 python tests/conferir_totais.py base_teste 2026-10 cred mat 1 1 neg 2  # mínimo de 2 meses depois
 ```
 
-Valores de referência (v2.6) com a base sintética padrão (3000 ligações, semente 7, com Faturamento e Situacao Ligacao CORTADA ou SUPRIMIDA na última conta antes do corte), mês vigente out/26:
+Valores de referência (v2.6 e v2.7) com a base sintética padrão (3000 ligações, semente 7, com Faturamento e Situacao Ligacao CORTADA ou SUPRIMIDA na última conta antes do corte), mês vigente out/26:
 - padrão: 636 clientes (23 sem histórico), 407 comparáveis, 32 melhoraram, 197 pioraram, 178 permaneceram, 225 insuficientes (213 termo recente, 12 sem conta), 13 recuperados de 114; 52 cortadas com meses de corte, 37 em Nunca pagou; 28 reincidentes;
 - Data de aplicação: 597, 400, 32, 191, 177, 193; 12 de 111;
 - mínimo de 2 meses: 467 comparáveis, 37, 222, 208, 161; 16 de 128;
 - por evento: 657 termos, 400, 31, 194, 175, 252 (223 recente, 17 outro termo, 12 sem conta); 12 de 110;
 - sem faturamento: 423, 62, 190, 171, 213; 25 de 136.
+- amostra sem termo (v2.7): 103 matrículas, 62 comparáveis; com faturamento 3 melhoraram, 20 pioraram, 39 permaneceram, 1 recuperado de 16; só arrecadação 9, 22, 31, 4 de 19.
 
 No teste com Playwright, `setInputFiles` descarta arquivos cujo caminho tem acento (as pastas "Arrecadação…"): copie a base para pastas sem acento antes de testar.
 

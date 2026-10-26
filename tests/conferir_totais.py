@@ -100,8 +100,18 @@ def com_cabecalho(linhas):
     return None, []
 
 
+def hash_lig(k):
+    """FNV-1a de 32 bits, igual ao do painel (amostra de comparação e mês de referência)."""
+    h = 0x811c9dc5
+    for ch in k:
+        h ^= ord(ch)
+        h = (h * 0x01000193) & 0xFFFFFFFF
+    return h
+
+
 arquivos = sorted(os.path.join(r, f) for r, _, fs in os.walk(pasta) for f in fs if f.lower().endswith(('.xlsx', '.csv')))
 termos = {}   # matrícula -> {mês: data mais antiga}
+com_termo = set()   # matrículas com alguma linha válida de 2026 (qualquer data): não entram na amostra de comparação
 for a in arquivos:
     if 'termo' not in os.path.basename(a).lower():
         continue
@@ -113,6 +123,8 @@ for a in arquivos:
         ineg, iapl, ival = h.index('DATA_DE_NEGOCIACAO'), h.index('DATA_DE_APLICACAO'), h.index('VALOR')
         for l in linhas:
             k = lig(l[il])
+            if k and num(l[ival]) > 0 and any(x and x[0] // 12 == 2026 for x in (data(l[ineg]), data(l[iapl]))):
+                com_termo.add(k)
             d = (data(l[ineg]) or data(l[iapl])) if DATA == 'neg' else (data(l[iapl]) or data(l[ineg]))
             if not k or not d or d[0] // 12 != 2026 or not num(l[ival]) > 0:
                 continue
@@ -121,6 +133,7 @@ for a in arquivos:
 
 pag, vistos, min_am, max_am, cobertura, cred_venc = {}, set(), 10 ** 9, -1, set(), {}
 fat, vistos_fat, cob_fat, ult_conta = {}, set(), set(), {}
+amostra = set()
 for a in arquivos:
     if 'termo' in os.path.basename(a).lower():
         continue
@@ -132,7 +145,9 @@ for a in arquivos:
             il, ir, iv, ive, irl, isl = (h.index(n) for n in ('N_DA_LIGACAO', 'RUBRICA', 'VALOR_PARCELA', 'DATA_DE_VENCIMENTO', 'REFERENCIA_DE_LEITURA', 'SITUACAO_LIGACAO'))
             for l in linhas:
                 k = lig(l[il])
-                if k not in termos or norm(l[ir]) not in ('VALOR_DE_AGUA', 'VALOR_DE_ESGOTO'):
+                if k and k not in com_termo and hash_lig(k) % 100 < 5:
+                    amostra.add(k)
+                if (k not in termos and k not in amostra) or norm(l[ir]) not in ('VALOR_DE_AGUA', 'VALOR_DE_ESGOTO'):
                     continue
                 d, v = data(l[ive]), num(l[iv])
                 chave = (k, norm(l[ir]), d[1], str(l[irl]), v)
@@ -155,7 +170,9 @@ for a in arquivos:
             min_am, max_am = min(min_am, dp[0]), max(max_am, dp[0])
             mes = {'pag': dp[0], 'ref': ref, 'cred': dc[0]}[MODO]
             cobertura.add(mes)
-            if k not in termos:
+            if k not in com_termo and hash_lig(k) % 100 < 5:
+                amostra.add(k)
+            if k not in termos and k not in amostra:
                 continue
             v = num(l[ix['VALOR_PAGO']])
             chave = (k, str(l[ix['N_NOTA']]).strip(), ref, dp[1], v)
@@ -196,30 +213,37 @@ def depois(p, n):
 
 M = [[0] * 5 for _ in range(4)]
 motivos = [0] * 5   # insuficiente: 1 recente, 2 outro termo, 3 sem dados, 4 sem conta
-c = dict(total=0, comp=0, melhorou=0, piorou=0, igual=0, insuf=0, semhist=0, naopag=0, recup=0, mA=0.0, mD=0.0)
-for k, evs in termos.items():
-    meses = sorted(evs)
-    for i, t in enumerate(meses):
-        if UNIDADE == 'mat' and i > 0:
-            break
-        if t >= vig:   # termo do mês vigente: fora
-            continue
+
+
+def classifica(k, t, prox):
+    """Classificação de uma unidade (mesmas regras do painel). Devolve (antes, depois, média antes, média depois, motivo)."""
+    fim = min(ult, t + 12)
+    corte = False   # com a matrícula como unidade, o primeiro termo vai até o fim (v2.6)
+    if prox is not None and prox - 1 < fim:
+        fim, corte = prox - 1, True
+    ja = [m for m in range(t - 12, t) if ok(m)]
+    jd = [m for m in range(t + 1, fim + 1) if ok(m)]
+    va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
+    uc = ult_conta.get(k)
+    cortada = USA_FAT and uc is not None and 'CORT' in uc[1]
+    # ligação cortada: depois do termo, mês sem conta depois da última conta conta como não pago
+    oa = [pago(k, m) for m in ja if conta(k, m)]
+    od = [pago(k, m) if conta(k, m) else False for m in jd if conta(k, m) or (cortada and m > uc[0])]
+    ca, cd = antes(sum(oa), len(oa)), depois(sum(od), len(od))
+    mot = 0
+    if cd == 4:
+        mot = 1 if min(ult, t + 12) - t < MIN else 2 if corte and fim - t < MIN else 3 if len(jd) < MIN else 4
+    return ca, cd, (sum(va) / len(va) if va else 0), (sum(vd) / len(vd) if vd else 0), mot
+
+
+def soma(unidades):
+    c = dict(total=0, comp=0, melhorou=0, piorou=0, igual=0, insuf=0, semhist=0, naopag=0, recup=0, mA=0.0, mD=0.0)
+    M = [[0] * 5 for _ in range(4)]
+    for k, t, prox in unidades:
         c['total'] += 1
-        fim = min(ult, t + 12)
-        corte = False   # com a matrícula como unidade, o primeiro termo vai até o fim (v2.6)
-        if UNIDADE == 'evento' and i + 1 < len(meses) and meses[i + 1] - 1 < fim:
-            fim, corte = meses[i + 1] - 1, True
-        ja = [m for m in range(t - 12, t) if ok(m)]
-        jd = [m for m in range(t + 1, fim + 1) if ok(m)]
-        va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
-        uc = ult_conta.get(k)
-        cortada = USA_FAT and uc is not None and 'CORT' in uc[1]
-        # ligação cortada: depois do termo, mês sem conta depois da última conta conta como não pago
-        oa = [pago(k, m) for m in ja if conta(k, m)]
-        od = [pago(k, m) if conta(k, m) else False for m in jd if conta(k, m) or (cortada and m > uc[0])]
-        ca, cd = antes(sum(oa), len(oa)), depois(sum(od), len(od))
+        ca, cd, ma, md, mot = classifica(k, t, prox)
         if cd == 4:
-            motivos[1 if min(ult, t + 12) - t < MIN else 2 if corte and fim - t < MIN else 3 if len(jd) < MIN else 4] += 1
+            motivos[mot] += 1 if unidades is un_termo else 0
         if ca < 0:
             c['semhist'] += 1
             c['insuf'] += cd == 4   # insuficiente conta também quem não tem histórico antes (como a matriz)
@@ -230,9 +254,26 @@ for k, evs in termos.items():
             continue
         c['comp'] += 1
         c['melhorou' if cd < ca else 'piorou' if cd > ca else 'igual'] += 1
-        c['mA'] += sum(va) / len(va); c['mD'] += sum(vd) / len(vd)
+        c['mA'] += ma; c['mD'] += md
         if ca >= 2:
             c['naopag'] += 1; c['recup'] += cd <= 1
+    return c, M
+
+
+un_termo = []
+for k, evs in termos.items():
+    meses = sorted(evs)
+    for i, t in enumerate(meses):
+        if UNIDADE == 'mat' and i > 0:
+            break
+        if t >= vig:   # termo do mês vigente: fora
+            continue
+        un_termo.append((k, t, meses[i + 1] if UNIDADE == 'evento' and i + 1 < len(meses) else None))
+c, M = soma(un_termo)
+# amostra de comparação: mês de referência sorteado entre os meses das unidades com termo
+dist = sorted(t for _, t, _ in un_termo)
+un_ctrl = [(k, dist[(hash_lig(k) // 100) % len(dist)], None) for k in sorted(amostra)]
+cc, _ = soma(un_ctrl)
 
 rot = lambda a: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][a % 12] + '/' + str(a // 12)[2:]
 sem = [rot(m) for m in range(min_am, ult + 1) if not ok(m)]
@@ -240,6 +281,7 @@ print(f'Pagamentos de {rot(min_am)} a {rot(max_am)}, mês vigente {rot(vig)}, an
 print(f"Total: {c['total']} | suficiente: {c['comp']} | melhoraram: {c['melhorou']} | pioraram: {c['piorou']} | permaneceram: {c['igual']} | insuficiente: {c['insuf']} | sem histórico: {c['semhist']}")
 print(f"Recuperados: {c['recup']} de {c['naopag']} | média mensal por cliente comparável: antes R$ {c['mA'] / max(1, c['comp']):,.2f}, depois R$ {c['mD'] / max(1, c['comp']):,.2f}")
 print(f'Motivos do acompanhamento insuficiente: recente {motivos[1]}, outro termo {motivos[2]}, sem dados {motivos[3]}, sem conta {motivos[4]}')
+print(f"Sem termo (amostra): {cc['total']} | comparáveis: {cc['comp']} | melhoraram: {cc['melhorou']} | pioraram: {cc['piorou']} | permaneceram: {cc['igual']} | recuperados: {cc['recup']} de {cc['naopag']}")
 print('Matriz (linhas = antes, colunas = depois):', ' '.join(f'{f[:6]:>7}' for f in FAIXAS))
 for a in range(4):
     print(f'  {FAIXAS[a]:<13}', ' '.join(f'{x:>7}' for x in M[a]), f'| {sum(M[a]):>6}')

@@ -12,7 +12,9 @@ Painel em HTML que cruza a base de termos aplicados em 2026 com a base de arreca
    - a base de termos, um arquivo com **"termo" no nome** (por exemplo, `termos_todos_os_termos_2026-10-23.xlsx`).
 3. Aguarde a leitura. A base fica guardada no navegador e abre sozinha nas próximas vezes.
 4. Para atualizar, coloque os arquivos novos nas pastas (arrecadação diária, acumulada, faturamento e a base de termos nova) e clique em **↻ Atualizar**. Um pagamento que esteja na diária e na acumulada conta uma vez só.
-5. Na barra superior também ficam a **Data do termo** (negociação ou aplicação) e o **Mínimo de meses depois** do termo para avaliar o cliente.
+5. **Configuração da análise** (faixa logo abaixo das abas): **Base de cálculo** (com faturamento ou só arrecadação), **Mês vigente**, **Data do termo** (negociação ou aplicação) e **Mínimo de meses depois** do termo.
+   **Filtros**: os principais ficam à vista; o botão **Todos os filtros** abre uma gaveta com todos, agrupados. Os filtros ativos aparecem como etiquetas; o ✕ tira o filtro.
+   A aba **Comparação sem termo** compara os clientes com termo com uma amostra de clientes sem termo (5% da base), com as mesmas regras, para separar o efeito do termo da inadimplência normal.
 6. **Mês vigente** (ao lado das abas): abre no mês atual. Os termos desse mês ficam fora, a análise vai até o mês anterior, e os pagamentos do mês vigente só contam como pagamento com atraso de contas dos meses anteriores.
 
 Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou Windows-1252). As subpastas são lidas e os arquivos `~$` ignorados.
