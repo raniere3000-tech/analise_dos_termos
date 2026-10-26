@@ -24,6 +24,10 @@ Arquivos .xlsx e .csv são aceitos (CSV com `;`, `,` ou tabulação, em UTF-8 ou
 
 **Termos:** só a aba **Termos** é lida (a aba Resumo é ignorada). Usa Matrícula (o mesmo número do Nº Ligação), Data de negociação (mês do termo; sem ela, a Data de aplicação), Tipo de atividade e Valor. Situação do termo, Faturado, Isento, Frente, Equipe, Categoria e Origem viram filtros. Só entram os termos de 2026 com Valor maior que zero; se a matrícula tiver mais de um termo no ano, vale o primeiro.
 
+## Período do estudo
+
+Só entram arrecadação e faturamento de **jan/2025 até o mês atual** e termos de **2026** (sem os do mês vigente). Datas fora disso são ignoradas, e o rodapé informa quantas linhas ficaram de fora.
+
 ## Classificação
 
 - **Antes do termo:** os 12 meses anteriores ao mês do termo. Adimplente: pagou de 10 a 12 meses; Flutuante: de 6 a 9; Inadimplente: de 1 a 5; Nunca pagou: nenhum.

@@ -299,7 +299,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.3</span>
+      <span class="versao" id="versao" title="Versão do painel">v2.4</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -875,6 +875,10 @@ function preFiltro(col, aceita){
 /* ---------- base de termos ---------- */
 const TERMO_RE = /termo/i;
 const ANO_TERMO = 2026;
+// Período do estudo (definido pelo usuário): de jan do ano anterior aos termos (jan/2025, 12 meses antes do primeiro termo
+// possível) até o mês de hoje. Arrecadação e faturamento fora dele são ignorados; datas futuras são erro de digitação.
+const INICIO_ESTUDO = (ANO_TERMO - 1) * 12;
+const HOJE_AM = (() => { const c = new Date(); return c.getFullYear() * 12 + c.getMonth(); })();
 class Termos {
   constructor(){
     this.m = new Map();
@@ -939,7 +943,7 @@ class Arrecadacao {
     this.rMat = new G(Int32Array); this.rRef = new G(Int32Array); this.rPag = new G(Int32Array); this.rCred = new G(Int32Array); this.rVenc = new G(Int32Array); this.rVal = new G(Float64Array);
     this.vistos = new Set();
     this.minPag = Infinity; this.maxPag = -Infinity; this.minRef = Infinity; this.maxRef = -Infinity; this.ultData = '';
-    this.st = { linhas: 0, linhasTermo: 0, repetidas: 0, valorZero: 0, semMes: 0, semLig: 0, semCred: 0, sit: new Map(), porMes: new Map(), porRef: new Map(), porCred: new Map(), abas: [], ignoradas: [] };
+    this.st = { linhas: 0, linhasTermo: 0, repetidas: 0, valorZero: 0, semMes: 0, semLig: 0, semCred: 0, foraPeriodo: 0, sit: new Map(), porMes: new Map(), porRef: new Map(), porCred: new Map(), abas: [], ignoradas: [] };
   }
   add(c, h){
     const mk = ligKey(c[h.mat]); if (!mk){ this.st.semLig++; return; }
@@ -956,14 +960,15 @@ class Arrecadacao {
     this.st.linhas++;
     const s = h.sit !== undefined ? str(c[h.sit]) : '';
     this.st.sit.set(s, (this.st.sit.get(s) || 0) + 1);
-    if (pag >= 0){
+    if (pag >= 0 && (pag < INICIO_ESTUDO || pag > HOJE_AM)) this.st.foraPeriodo++;
+    if (pag >= INICIO_ESTUDO && pag <= HOJE_AM){
       if (pag < this.minPag) this.minPag = pag;
       if (pag > this.maxPag){ this.maxPag = pag; this.ultData = dp.txt; }
       else if (pag === this.maxPag && ordData(dp.txt) > ordData(this.ultData)) this.ultData = dp.txt;
       this.st.porMes.set(pag, (this.st.porMes.get(pag) || 0) + 1);
     }
     if (cred >= 0) this.st.porCred.set(cred, (this.st.porCred.get(cred) || 0) + 1);
-    if (ref >= 0){ if (ref < this.minRef) this.minRef = ref; if (ref > this.maxRef) this.maxRef = ref; this.st.porRef.set(ref, (this.st.porRef.get(ref) || 0) + 1); }
+    if (ref >= INICIO_ESTUDO && ref <= HOJE_AM){ if (ref < this.minRef) this.minRef = ref; if (ref > this.maxRef) this.maxRef = ref; this.st.porRef.set(ref, (this.st.porRef.get(ref) || 0) + 1); }
     const mi = this.idx.get(mk); if (mi === undefined) return;
     const valor = toNum(c[h.valor]);
     // o mesmo pagamento pode estar na pasta acumulada e na diária: entra uma vez só
@@ -986,7 +991,7 @@ class Arrecadacao {
     // eixo de meses: o período dos pagamentos (Data Pagto.); sem essa coluna, o das referências
     const temPag = this.maxPag >= 0;
     let minT = Infinity; for (const l of termos.values()) for (const e of l) if (e.am < minT) minT = e.am;
-    const am0 = Math.max(temPag ? this.minPag : this.minRef, minT - 12), am1 = temPag ? this.maxPag : this.maxRef;
+    const am0 = Math.max(temPag ? this.minPag : this.minRef, minT - 12, INICIO_ESTUDO), am1 = Math.min(temPag ? this.maxPag : this.maxRef, HOJE_AM);
     const nR = am1 - am0 + 1, nM = this.mats.length;
     const valRef = new Float64Array(nM * nR), valPag = new Float64Array(nM * nR), valCred = new Float64Array(nM * nR), temArr = new Uint8Array(nM);
     const credVenc = new Int16Array(nM * nR).fill(-1);
@@ -1039,7 +1044,7 @@ class Arrecadacao {
       dict: { zona: this.d.zona.list, util: this.d.util.list, tipo: this.d.tipo.list, cid: dCid.list },
       stats: { linhas: st.linhas, linhasTermo: st.linhasTermo, repetidas: st.repetidas, valorZero: st.valorZero, semMes: st.semMes, semLig: st.semLig, refFora,
         sit: [...st.sit.entries()].sort((a, b) => b[1] - a[1]), porMes: [...st.porMes.entries()].sort((a, b) => a[0] - b[0]),
-        porRef: [...st.porRef.entries()].sort((a, b) => a[0] - b[0]), porCred: [...st.porCred.entries()].sort((a, b) => a[0] - b[0]), semCred: st.semCred,
+        porRef: [...st.porRef.entries()].sort((a, b) => a[0] - b[0]), porCred: [...st.porCred.entries()].sort((a, b) => a[0] - b[0]), semCred: st.semCred, foraPeriodo: st.foraPeriodo,
         abas: st.abas, ignoradas: st.ignoradas }
     };
   }
@@ -1173,7 +1178,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.3';
+const VERSAO_SITE = '2.4';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1312,7 +1317,29 @@ function loadFiles(list, fonte){
   worker.postMessage({ files });
 }
 
+// Período do estudo (mesma regra do worker): de jan/2025 até o mês de hoje. Uma base guardada por versão anterior pode
+// começar antes (o usuário viu meses de 2022 a 2024); ela é recortada aqui, sem precisar ler os arquivos de novo.
+const INICIO_ESTUDO = 2025 * 12;
+function recortaPeriodo(d){
+  const ini = Math.max(d.am0, INICIO_ESTUDO), fim = Math.min(d.am0 + d.nR - 1, Math.max(INICIO_ESTUDO, mesHoje()));
+  if (ini === d.am0 && fim === d.am0 + d.nR - 1) return;
+  const off = ini - d.am0, nR = Math.max(1, fim - ini + 1), nM = d.mats.length;
+  const corta = (a, T) => {
+    if (!a) return a;
+    const b = new T(nM * nR);
+    for (let m = 0; m < nM; m++) b.set(a.subarray(m * d.nR + off, m * d.nR + off + nR), m * nR);
+    return b;
+  };
+  ['valRef', 'valPag', 'valCred', 'fat'].forEach(k => { d[k] = corta(d[k], Float64Array); });
+  if (d.credVenc){
+    const c = corta(d.credVenc, Int16Array);
+    for (let i = 0; i < c.length; i++) if (c[i] >= 0) c[i] = Math.max(0, c[i] - off);
+    d.credVenc = c;
+  }
+  d.am0 = ini; d.nR = nR;
+}
 function setData(d){
+  recortaPeriodo(d);
   D = d;
   // meses de aplicação do termo presentes na base, para o filtro e o gráfico por mês
   D.tMeses = [...new Set(D.eAm)].sort((a, b) => a - b);
@@ -1936,6 +1963,9 @@ function renderRodape(){
   let corte = 0, incompleto = 0; for (let u = 0; u < D.n; u++){ if (D.corte[u]) corte++; if (D.cA[u] >= 0 && D.nA[u] < 12) incompleto++; }
   const partes = [];
   partes.push(`Base: ${/arquivos$/.test(D.meta.fonte) ? '' : esc(D.meta.fonte) + ', '}${plural(D.meta.arquivos.length, 'arquivo', 'arquivos')}. Arrecadação de ${amLabel(D.am0)} a ${amLabel(D.am0 + D.nR - 1)}${D.ultData ? ' (último pagamento em ' + D.ultData + ')' : ''}: ${nf0.format(s.linhas)} pagamentos lidos, ${nf0.format(s.linhasTermo)} de matrículas com termo.`);
+  // leitura nova: contado no worker; base guardada por versão anterior: pelos meses que ficaram fora do recorte
+  const foraArr = s.foraPeriodo != null ? s.foraPeriodo : (s.porMes || []).filter(([a]) => a < D.am0 || a > D.am0 + D.nR - 1).reduce((t, [, n]) => t + n, 0);
+  if (foraArr) partes.push(`${plural(foraArr, 'pagamento', 'pagamentos')} com data fora do período do estudo (antes de ${amLabel(D.am0)} ou depois de hoje) ${foraArr === 1 ? 'foi ignorado' : 'foram ignorados'}.`);
   if (s.repetidas) partes.push(`${plural(s.repetidas, 'pagamento repetido', 'pagamentos repetidos')} entre arquivos ${s.repetidas === 1 ? 'foi descartado' : 'foram descartados'}.`);
   if (s.valorZero) partes.push(`${plural(s.valorZero, 'linha', 'linhas')} sem Valor Pago não ${s.valorZero === 1 ? 'conta' : 'contam'} como pagamento.`);
   partes.push(`Termos: ${nf0.format(t.linhas)} linhas da aba Termos, ${plural(nE, 'termo', 'termos')} de 2026 em ${plural(nM, 'matrícula', 'matrículas')}` +
@@ -1952,7 +1982,7 @@ function renderRodape(){
       (f.rubOutras ? `; ${plural(f.rubOutras, 'linha', 'linhas')} de outras rubricas ${f.rubOutras === 1 ? 'ignorada' : 'ignoradas'}` : '') +
       (f.repetidas ? `; ${plural(f.repetidas, 'linha repetida descartada', 'linhas repetidas descartadas')}` : '') +
       (f.semVenc ? `; ${plural(f.semVenc, 'linha', 'linhas')} sem Data de Vencimento` : '') +
-      (f.fora ? `; ${plural(f.fora, 'linha', 'linhas')} com vencimento fora do período da arrecadação` : '') + '.' +
+      (f.fora ? `; ${plural(f.fora, 'linha', 'linhas')} com vencimento fora do período do estudo ${f.fora === 1 ? 'ignorada' : 'ignoradas'}` : '') + '.' +
       (f.sitc.length > 1 ? ' Situacao Conta: ' + f.sitc.slice(0, 6).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.' : ''));
   } else partes.push('Faturamento não usado: ' + motivoSemFat());
   if (f && f.abas && f.abas.length){
