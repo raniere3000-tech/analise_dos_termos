@@ -363,7 +363,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.8</span>
+      <span class="versao" id="versao" title="Versão do painel">v2.9</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -505,6 +505,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
         </div>
       </div>
       <div class="legenda sk-leg" id="skLeg"></div>
+      <p class="nota-secao" id="skNota" style="margin:2px 0 0"></p>
       <div class="bloco-rolagem"><div class="sankey" id="sankey"></div></div>
     </div>
 
@@ -1324,7 +1325,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.8';
+const VERSAO_SITE = '2.9';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -2106,12 +2107,14 @@ const SK_COR = ['#102840', '#176b9c', '#E8710A', '#9a3412', '#9AA6B2'];   // Adi
 // faixas: o marinho fica cinza com transparência, por isso as que saem de Adimplente usam um azul-marinho mais claro
 const SK_FAIXA = ['#2E4C9A', '#1F7FB8', '#F08A2E', '#B4532A', '#9AA6B2'];
 function renderSankey(M, linhas){
-  const el = $('#sankey'), W = 1000, ML = 190, MR = 230, NW = 14, GAP = 14, x0 = ML, x1 = W - MR;
-  const esq = linhas, dir = [0, 1, 2, 3, 4].filter(d => esq.some(a => M[a][d] > 0) || d < 4);
-  const totE = esq.map(a => M[a].reduce((x, y) => x + y, 0)), totD = dir.map(d => esq.reduce((x, a) => x + M[a][d], 0));
-  const N = totE.reduce((x, y) => x + y, 0);
-  if (!N){ el.innerHTML = '<p class="nota-secao">Sem clientes com esses filtros.</p>'; $('#skLeg').innerHTML = ''; return; }
-  const H = 420, esc = (H - GAP * (Math.max(esq.length, dir.length) - 1)) / N;
+  // sem a coluna Acompanhamento insuficiente (pedido do usuário, v2.9): só as passagens entre as quatro classificações
+  const el = $('#sankey'), W = 1000, ML = 190, MR = 190, NW = 12, GAP = 22, x0 = ML, x1 = W - MR;
+  const dir = [0, 1, 2, 3], esq = linhas.filter(a => dir.some(d => M[a][d] > 0));
+  const totE = esq.map(a => dir.reduce((x, d) => x + M[a][d], 0)), totD = dir.map(d => esq.reduce((x, a) => x + M[a][d], 0));
+  const N = totE.reduce((x, y) => x + y, 0), insuf = linhas.reduce((x, a) => x + M[a][4], 0);
+  $('#skNota').textContent = insuf ? `O fluxo mostra ${plural(N, 'cliente', 'clientes')} com acompanhamento suficiente. ${plural(insuf, 'cliente', 'clientes')} com acompanhamento insuficiente ${insuf === 1 ? 'fica' : 'ficam'} de fora (estão na matriz acima).` : '';
+  if (!N){ el.innerHTML = '<p class="nota-secao">Sem clientes com acompanhamento suficiente com esses filtros.</p>'; $('#skLeg').innerHTML = ''; return; }
+  const H = 360, esc = (H - GAP * (Math.max(esq.length, dir.length) - 1)) / N;
   const alt = v => Math.max(v ? 2 : 0, v * esc);
   // posição vertical dos blocos de cada lado
   const pos = (tots) => { let y = 0; return tots.map(t => { const p = y; y += alt(t) + GAP; return p; }); };
@@ -2128,17 +2131,17 @@ function renderSankey(M, linhas){
     const xm = (x0 + NW + x1) / 2;
     faixas.push({ a, d, v, path: `M${x0 + NW},${ya} C${xm},${ya} ${xm},${yb} ${x1},${yb} L${x1},${yb + h} C${xm},${yb + h} ${xm},${ya + h} ${x0 + NW},${ya + h} Z` });
   }));
-  let g = faixas.map((f, i) => `<path class="sk-faixa" data-i="${i}" d="${f.path}" fill="${corFaixa(f.a, f.d)}" fill-opacity=".42"/>`).join('');
+  let g = faixas.map((f, i) => `<path class="sk-faixa" data-i="${i}" d="${f.path}" fill="${corFaixa(f.a, f.d)}" fill-opacity=".36" stroke="#fff" stroke-width=".8"/>`).join('');
   const rot = (x, y, h, ancora, nome, v, cor) => `<text x="${x}" y="${y + h / 2 - 2}" text-anchor="${ancora}" font-size="13" font-weight="600" fill="${cor}" font-family="${FONTE_SVG}">${esc2(nome)}</text>` +
     `<text x="${x}" y="${y + h / 2 + 13}" text-anchor="${ancora}" font-size="12" fill="#64748b" font-family="${FONTE_SVG}">${nf0.format(v)} · ${pct(v / N)}</text>`;
-  esq.forEach((a, i) => { g += `<rect x="${x0}" y="${yE[i]}" width="${NW}" height="${alt(totE[i])}" fill="${SK_COR[a]}"/>` + rot(x0 - 10, yE[i], alt(totE[i]), 'end', nomeE(a), totE[i], '#102840'); });
-  dir.forEach((d, j) => { g += `<rect x="${x1}" y="${yD[j]}" width="${NW}" height="${alt(totD[j])}" fill="${d === 4 ? '#C5CDD5' : SK_COR[d]}"/>` + rot(x1 + NW + 10, yD[j], alt(totD[j]), 'start', nomeD(d), totD[j], '#102840'); });
+  esq.forEach((a, i) => { g += `<rect x="${x0}" y="${yE[i]}" width="${NW}" height="${alt(totE[i])}" fill="${SK_COR[a]}" rx="2"/>` + rot(x0 - 10, yE[i], alt(totE[i]), 'end', nomeE(a), totE[i], '#102840'); });
+  dir.forEach((d, j) => { if (totD[j]) g += `<rect x="${x1}" y="${yD[j]}" width="${NW}" height="${alt(totD[j])}" fill="${SK_COR[d]}" rx="2"/>` + rot(x1 + NW + 10, yD[j], alt(totD[j]), 'start', nomeD(d), totD[j], '#102840'); });
   g += `<text x="${x0}" y="-10" font-size="11.5" font-weight="700" fill="#64748b" font-family="${FONTE_SVG}" letter-spacing=".06em">ANTES DO TERMO</text>`;
   g += `<text x="${x1 + NW}" y="-10" text-anchor="end" font-size="11.5" font-weight="700" fill="#64748b" font-family="${FONTE_SVG}" letter-spacing=".06em">DEPOIS DO TERMO</text>`;
   el.innerHTML = `<svg viewBox="0 -28 ${W} ${hT + 36}" role="img" aria-label="Fluxo de clientes da classificação antes para a classificação depois do termo">${g}</svg>`;
   el.faixas = faixas; el.totE = new Map(esq.map((a, i) => [a, totE[i]]));
   $('#skLeg').innerHTML = st.sk === 'res'
-    ? [['Melhorou', COR.melhora], ['Permaneceu', COR.permanece], ['Piorou', COR.piora], ['Sem histórico ou acompanhamento insuficiente', COR.insuf]].map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')
+    ? [['Melhorou', COR.melhora], ['Permaneceu', COR.permanece], ['Piorou', COR.piora]].concat(esq.includes(4) ? [['Sem histórico antes', COR.insuf]] : []).map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')
     : esq.map(a => `<span><i style="background:${SK_COR[a]}"></i>Saiu de ${ANTES[a]}</span>`).join('');
 }
 const esc2 = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
