@@ -14,6 +14,7 @@ Painel em HTML que cruza a base de termos aplicados em 2026 com a base de arreca
 4. Para atualizar, coloque os arquivos novos nas pastas (arrecadação diária, acumulada, faturamento e a base de termos nova) e clique em **↻ Atualizar**. Um pagamento que esteja na diária e na acumulada conta uma vez só.
 5. **Configuração da análise** (faixa logo abaixo das abas): **Base de cálculo** (com faturamento ou só arrecadação), **Mês vigente**, **Data do termo** (negociação ou aplicação) e **Mínimo de meses depois** do termo.
    **Filtros**: os principais ficam à vista; o botão **Todos os filtros** abre uma gaveta com todos, agrupados. Os filtros ativos aparecem como etiquetas; o ✕ tira o filtro.
+   No cartão **Perfil antes × depois**, abaixo da matriz, o **fluxo antes → depois** mostra em faixas para onde foram os clientes de cada classificação.
    A aba **Comparação sem termo** compara os clientes com termo com uma amostra de clientes sem termo (5% da base), com as mesmas regras, para separar o efeito do termo da inadimplência normal.
 6. **Mês vigente** (ao lado das abas): abre no mês atual. Os termos desse mês ficam fora, a análise vai até o mês anterior, e os pagamentos do mês vigente só contam como pagamento com atraso de contas dos meses anteriores.
 

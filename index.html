@@ -266,6 +266,14 @@ input.cfg-sel{width:56px}
 .gav-ok{background:var(--marinho);color:#fff;border:1px solid var(--marinho);border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer}
 .gav-ok:hover{background:var(--azul)}
 @media (max-width:640px){.btn-gaveta{margin-left:0}}
+.sk-topo{display:flex;justify-content:space-between;align-items:flex-end;gap:8px 16px;flex-wrap:wrap;margin-top:16px;border-top:1px solid var(--linha);padding-top:12px}
+.sk-topo .nota-secao{margin:0}
+.sk-leg{margin:8px 0 2px}
+.sankey{min-width:760px}
+.sankey svg{display:block;width:100%;height:auto}
+.sankey .sk-faixa{cursor:pointer;transition:opacity .15s}
+.sankey svg.foco .sk-faixa{opacity:.15}
+.sankey svg.foco .sk-faixa.on{opacity:.85}
 .comp-graf{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px 24px}
 .comp-sub{margin:4px 0;font-size:12.5px;font-weight:600;color:var(--marinho)}
 .comp-graf.um{grid-template-columns:1fr}
@@ -355,7 +363,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.7</span>
+      <span class="versao" id="versao" title="Versão do painel">v2.8</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -489,6 +497,15 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
       <div class="tabela-wrap" id="tblMatriz"></div>
       <div class="matriz-leg"><span><i style="background:var(--melhora-tint)"></i>melhorou</span><span><i style="background:var(--permanece-tint)"></i>permaneceu</span><span><i style="background:var(--piora-tint)"></i>piorou</span><span><i style="background:var(--insuf-tint)"></i>acompanhamento insuficiente</span><span>Clique num número para ver os clientes.</span></div>
       <div class="destaques" id="matDestaques"></div>
+      <div class="sk-topo">
+        <div><p class="comp-sub">Fluxo antes → depois</p><p class="nota-secao">A espessura de cada faixa é a quantidade de clientes que fez aquela passagem. Passe o mouse para ver os números; clique para ver os clientes.</p></div>
+        <div class="seg" role="group" aria-label="Cor das faixas">
+          <button type="button" data-sk="origem" aria-pressed="true">Cor pela classificação antes</button>
+          <button type="button" data-sk="res" aria-pressed="false">Cor pelo resultado</button>
+        </div>
+      </div>
+      <div class="legenda sk-leg" id="skLeg"></div>
+      <div class="bloco-rolagem"><div class="sankey" id="sankey"></div></div>
     </div>
 
     <div class="card">
@@ -1307,7 +1324,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.7';
+const VERSAO_SITE = '2.8';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1336,7 +1353,7 @@ const RES = ['Permaneceu', 'Piorou', 'Melhorou', 'Acompanhamento insuficiente', 
 const COR = { melhora: '#1F8A4C', melhora2: '#7CC49A', permanece: '#E0B43C', piora: '#C62828', insuf: '#9AA6B2', antes: '#102840', depois: '#176b9c' };
 
 let D = null;
-const st = { vig: 0, sel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
+const st = { sk: 'origem', vig: 0, sel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
 
 /* ---------- parâmetros (guardados neste navegador) ---------- */
 const paramPadrao = () => ({ unidade: 'mat', modo: 'cred', fat: true, tol: 1, min: 3, adim: 83.3, flut: 50, dataTermo: 'neg', corteVals: null });
@@ -2041,6 +2058,7 @@ function renderMatriz(k){
   });
   h += `<tr class="linha-total"><td>Total</td>${totC.map((c, d) => `<td>${cel(c, totG, -1, d)}</td>`).join('')}<td>${cel(totG, totG, -1, -1)}</td></tr></tbody></table>`;
   $('#tblMatriz').innerHTML = h;
+  renderSankey(M, linhas);
   $('#matNota').textContent = `Linhas: classificação nos 12 meses antes do termo. Colunas: classificação depois. ` +
     (emPct ? 'Em % da linha, o denominador é o total da linha, incluindo quem ainda tem acompanhamento insuficiente.' : `Base: ${plural(totG, nomeUn().slice(0, -1), nomeUn())}.`);
   const o = agrega(k, () => 0, 1), g = x => o[x][0];
@@ -2079,6 +2097,79 @@ function motivosHtml(k){
   if (reinc && P.unidade !== 'evento') h += `<span>Reincidentes: <b>${nf0.format(reinc)}</b> ${reinc === 1 ? 'matrícula recebeu' : 'matrículas receberam'} mais de um termo em 2026; a análise usa o primeiro termo e o acompanha até o fim</span>`;
   return h;
 }
+
+/* ---------- Fluxo antes → depois (diagrama de Sankey, v2.8) ----------
+   Mesmos números da matriz (M[antes][depois]): à esquerda as classificações antes do termo (e Sem histórico antes), à
+   direita as classificações depois (e Acompanhamento insuficiente). A espessura é proporcional à quantidade de clientes.
+   Cor pela classificação antes (padrão, como o modelo do usuário) ou pelo resultado (melhora, permanece, piora). */
+const SK_COR = ['#102840', '#176b9c', '#E8710A', '#9a3412', '#9AA6B2'];   // Adimplente, Flutuante, Inadimplente, Nunca pagou, sem histórico/insuficiente
+// faixas: o marinho fica cinza com transparência, por isso as que saem de Adimplente usam um azul-marinho mais claro
+const SK_FAIXA = ['#2E4C9A', '#1F7FB8', '#F08A2E', '#B4532A', '#9AA6B2'];
+function renderSankey(M, linhas){
+  const el = $('#sankey'), W = 1000, ML = 190, MR = 230, NW = 14, GAP = 14, x0 = ML, x1 = W - MR;
+  const esq = linhas, dir = [0, 1, 2, 3, 4].filter(d => esq.some(a => M[a][d] > 0) || d < 4);
+  const totE = esq.map(a => M[a].reduce((x, y) => x + y, 0)), totD = dir.map(d => esq.reduce((x, a) => x + M[a][d], 0));
+  const N = totE.reduce((x, y) => x + y, 0);
+  if (!N){ el.innerHTML = '<p class="nota-secao">Sem clientes com esses filtros.</p>'; $('#skLeg').innerHTML = ''; return; }
+  const H = 420, esc = (H - GAP * (Math.max(esq.length, dir.length) - 1)) / N;
+  const alt = v => Math.max(v ? 2 : 0, v * esc);
+  // posição vertical dos blocos de cada lado
+  const pos = (tots) => { let y = 0; return tots.map(t => { const p = y; y += alt(t) + GAP; return p; }); };
+  const yE = pos(totE), yD = pos(totD), hT = Math.max(yE[yE.length - 1] + alt(totE[totE.length - 1]), yD[yD.length - 1] + alt(totD[totD.length - 1]));
+  const nomeE = a => ANTES[a], nomeD = d => DEPOIS[d];
+  const corRes = (a, d) => a === 4 || d === 4 ? COR.insuf : d < a ? COR.melhora : d > a ? COR.piora : COR.permanece;
+  const corFaixa = (a, d) => st.sk === 'res' ? corRes(a, d) : SK_FAIXA[a];
+  // faixas: saem na ordem do destino e chegam na ordem da origem, para não se cruzarem à toa
+  const offE = esq.map(() => 0), offD = dir.map(() => 0), faixas = [];
+  esq.forEach((a, i) => dir.forEach((d, j) => {
+    const v = M[a][d]; if (!v) return;
+    const h = alt(v), ya = yE[i] + offE[i], yb = yD[j] + offD[j];
+    offE[i] += h; offD[j] += h;
+    const xm = (x0 + NW + x1) / 2;
+    faixas.push({ a, d, v, path: `M${x0 + NW},${ya} C${xm},${ya} ${xm},${yb} ${x1},${yb} L${x1},${yb + h} C${xm},${yb + h} ${xm},${ya + h} ${x0 + NW},${ya + h} Z` });
+  }));
+  let g = faixas.map((f, i) => `<path class="sk-faixa" data-i="${i}" d="${f.path}" fill="${corFaixa(f.a, f.d)}" fill-opacity=".42"/>`).join('');
+  const rot = (x, y, h, ancora, nome, v, cor) => `<text x="${x}" y="${y + h / 2 - 2}" text-anchor="${ancora}" font-size="13" font-weight="600" fill="${cor}" font-family="${FONTE_SVG}">${esc2(nome)}</text>` +
+    `<text x="${x}" y="${y + h / 2 + 13}" text-anchor="${ancora}" font-size="12" fill="#64748b" font-family="${FONTE_SVG}">${nf0.format(v)} · ${pct(v / N)}</text>`;
+  esq.forEach((a, i) => { g += `<rect x="${x0}" y="${yE[i]}" width="${NW}" height="${alt(totE[i])}" fill="${SK_COR[a]}"/>` + rot(x0 - 10, yE[i], alt(totE[i]), 'end', nomeE(a), totE[i], '#102840'); });
+  dir.forEach((d, j) => { g += `<rect x="${x1}" y="${yD[j]}" width="${NW}" height="${alt(totD[j])}" fill="${d === 4 ? '#C5CDD5' : SK_COR[d]}"/>` + rot(x1 + NW + 10, yD[j], alt(totD[j]), 'start', nomeD(d), totD[j], '#102840'); });
+  g += `<text x="${x0}" y="-10" font-size="11.5" font-weight="700" fill="#64748b" font-family="${FONTE_SVG}" letter-spacing=".06em">ANTES DO TERMO</text>`;
+  g += `<text x="${x1 + NW}" y="-10" text-anchor="end" font-size="11.5" font-weight="700" fill="#64748b" font-family="${FONTE_SVG}" letter-spacing=".06em">DEPOIS DO TERMO</text>`;
+  el.innerHTML = `<svg viewBox="0 -28 ${W} ${hT + 36}" role="img" aria-label="Fluxo de clientes da classificação antes para a classificação depois do termo">${g}</svg>`;
+  el.faixas = faixas; el.totE = new Map(esq.map((a, i) => [a, totE[i]]));
+  $('#skLeg').innerHTML = st.sk === 'res'
+    ? [['Melhorou', COR.melhora], ['Permaneceu', COR.permanece], ['Piorou', COR.piora], ['Sem histórico ou acompanhamento insuficiente', COR.insuf]].map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')
+    : esq.map(a => `<span><i style="background:${SK_COR[a]}"></i>Saiu de ${ANTES[a]}</span>`).join('');
+}
+const esc2 = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// dica e destaque ao passar o mouse; clique abre a aba Clientes com a passagem
+(() => {
+  const el = $('#sankey');
+  el.addEventListener('pointermove', e => {
+    const p = e.target.closest('.sk-faixa'), svg = el.querySelector('svg');
+    if (!svg) return;
+    el.querySelectorAll('.sk-faixa.on').forEach(x => x.classList.remove('on'));
+    if (!p){ svg.classList.remove('foco'); dicaEl.hidden = true; return; }
+    const f = el.faixas[+p.dataset.i]; svg.classList.add('foco'); p.classList.add('on');
+    const res = f.a === 4 ? 'Sem histórico antes' : f.d === 4 ? 'Acompanhamento insuficiente' : f.d < f.a ? 'Melhorou' : f.d > f.a ? 'Piorou' : 'Permaneceu';
+    dicaEl.innerHTML = `<b class="mes">${esc(ANTES[f.a])} → ${esc(DEPOIS[f.d])}</b>` +
+      `<div class="lin forte"><span>Clientes</span><span>${nf0.format(f.v)}</span></div>` +
+      `<div class="lin"><span>% de quem era ${esc(ANTES[f.a])}</span><span>${pct(f.v / el.totE.get(f.a))}</span></div>` +
+      `<div class="lin mudo"><span>Resultado</span><span>${res}</span></div>`;
+    dicaEl.hidden = false;
+    const w = dicaEl.offsetWidth, h = dicaEl.offsetHeight;
+    let left = e.clientX + 16; if (left + w > innerWidth - 8) left = e.clientX - w - 16;
+    dicaEl.style.left = Math.max(8, left) + 'px'; dicaEl.style.top = Math.max(8, Math.min(e.clientY - h / 2, innerHeight - h - 8)) + 'px';
+  });
+  el.addEventListener('pointerleave', () => { dicaEl.hidden = true; const svg = el.querySelector('svg'); if (svg) svg.classList.remove('foco'); });
+  el.addEventListener('click', e => {
+    const p = e.target.closest('.sk-faixa'); if (!p) return;
+    const f = el.faixas[+p.dataset.i];
+    st.sel.cA = new Set([f.a]); st.sel.cD = new Set([f.d]);
+    dicaEl.hidden = true; $('#cSearch').value = '';
+    montaFiltros(); showTab('cons');
+  });
+})();
 
 // Gráfico A: os mesmos clientes em cada classificação antes e depois do termo (só quem tem histórico antes)
 // Mesma base da matriz: todos os clientes, inclusive os sem histórico antes (só existem antes) e os com acompanhamento
@@ -2611,6 +2702,7 @@ $('#btnClear').onclick = async () => {
 };
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 liga('data-mat', 'mat', () => renderMatriz(keepMask()));
+liga('data-sk', 'sk', () => renderMatriz(keepMask()));
 liga('data-a', 'a', () => renderA(keepMask()));
 liga('data-grupo', 'grupo', () => renderGrupo(keepMask()));
 liga('data-ev', 'ev', () => renderEvento(keepMask()));
