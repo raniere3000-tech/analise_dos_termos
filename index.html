@@ -601,6 +601,20 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
       <div class="legenda"><span><i style="background:var(--marinho)"></i>Antes do termo</span><span><i style="background:var(--azul)"></i>Depois do termo</span></div>
       <div class="bloco-rolagem"><div class="bloco largo" id="blocoEv"></div></div>
     </div>
+    <div class="card">
+      <div class="card-topo">
+        <div>
+          <h2>Ticket médio de arrecadação antes e depois do termo</h2>
+          <p class="nota-secao" id="tkNota"></p>
+        </div>
+        <div class="toggle" role="group" aria-label="Eixo dos meses">
+          <button type="button" class="active" data-tk="rel" aria-pressed="true">Relativo ao termo</button>
+          <button type="button" data-tk="cal" aria-pressed="false">Calendário</button>
+        </div>
+      </div>
+      <div class="legenda"><span><i style="background:var(--azul)"></i>Ticket médio por cliente que pagou</span><span><i style="background:var(--marinho)"></i>Clientes que pagaram</span><span><i style="background:repeating-linear-gradient(90deg,#9AA6B2 0 4px,transparent 4px 7px);height:2px;vertical-align:3px"></i>Clientes no mês (base)</span><span><i style="background:#e9f1f7;border:1px solid #c9d6e2"></i>Depois do termo</span></div>
+      <div class="bloco-rolagem"><div class="bloco largo" id="blocoTk"></div></div>
+    </div>
 
     <p class="rodape" id="foot"></p>
   </section>
@@ -644,6 +658,20 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
       <p class="comp-sub" style="margin-top:18px">Sem termo</p>
       <p class="nota-secao" id="skCompCNota" style="margin:0"></p>
       <div class="bloco-rolagem"><div class="sankey" id="skCompC"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div>
+          <h2>Ticket médio de arrecadação, com e sem termo</h2>
+          <p class="nota-secao" id="tkCompNota"></p>
+        </div>
+        <div class="toggle" role="group" aria-label="Eixo dos meses">
+          <button type="button" class="active" data-tk="rel" aria-pressed="true">Relativo ao termo</button>
+          <button type="button" data-tk="cal" aria-pressed="false">Calendário</button>
+        </div>
+      </div>
+      <div class="legenda"><span><i style="background:var(--azul)"></i>Com termo</span><span><i style="background:#9AA6B2"></i>Sem termo</span><span><i style="background:#e9f1f7;border:1px solid #c9d6e2"></i>Depois do termo</span></div>
+      <div class="bloco-rolagem"><div class="bloco largo" id="blocoTkC"></div></div>
     </div>
   </section>
 
@@ -1341,7 +1369,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.10';
+const VERSAO_SITE = '2.11';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1370,7 +1398,7 @@ const RES = ['Permaneceu', 'Piorou', 'Melhorou', 'Acompanhamento insuficiente', 
 const COR = { melhora: '#1F8A4C', melhora2: '#7CC49A', permanece: '#E0B43C', piora: '#C62828', insuf: '#9AA6B2', antes: '#102840', depois: '#176b9c' };
 
 let D = null;
-const st = { sk: 'origem', vig: 0, sel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
+const st = { sk: 'origem', vig: 0, sel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', tk: 'rel', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
 
 /* ---------- parâmetros (guardados neste navegador) ---------- */
 const paramPadrao = () => ({ unidade: 'mat', modo: 'cred', fat: true, tol: 1, min: 3, adim: 83.3, flut: 50, dataTermo: 'neg', corteVals: null });
@@ -2011,6 +2039,7 @@ function renderResumo(){
   renderD(k);
   renderGrupo(k);
   renderEvento(k);
+  renderTicket(k);
   renderRodape();
 }
 
@@ -2415,6 +2444,160 @@ function renderEvento(k){
     (F ? ', entre quem tinha conta a pagar no mês' : '') + '. Depois do termo, cada mês só inclui quem já chegou nele: os meses mais distantes têm só os termos mais antigos.';
 }
 
+/* ---------- Ticket médio de arrecadação (v2.11) ----------
+   Ticket médio = valor arrecadado no mês ÷ clientes que pagaram no mês (definido pelo usuário). Dois eixos:
+   relativo ao termo (cada cliente alinhado pelo mês do próprio termo; o mês do termo fica fora, como no gráfico de
+   pagamento mês a mês) ou calendário (meses reais, todos os clientes filtrados em todos os meses). No calendário, a
+   linha do termo só aparece quando todos os clientes filtrados têm o termo no mesmo mês. */
+function ticketDados(grupos){
+  const nR = D.nR, V = D.V, L = D.L, rel = st.tk !== 'cal';
+  let cols, labels, marca = null, depois = null, mesUnico = null, nMeses = 0;
+  if (rel){
+    let maxO = 1;
+    grupos.forEach(({ n, O, k }) => { for (let u = 0; u < n; u++) if (k[u]) maxO = Math.max(maxO, O.fimD[u] - O.tI[u]); });
+    cols = []; for (let o = -12; o <= maxO; o++) if (o) cols.push(o);
+    labels = cols.map(o => (o > 0 ? '+' : '−') + Math.abs(o));
+    marca = 12; depois = 12;
+  } else {
+    cols = Array.from({ length: L + 1 }, (_, r) => r);
+    labels = cols.map(r => amLabel(D.am0 + r));
+    const meses = new Set();
+    grupos.forEach(({ n, O, k }) => { for (let u = 0; u < n; u++) if (k[u]) meses.add(O.tI[u]); });
+    nMeses = meses.size;
+    if (meses.size === 1){ mesUnico = [...meses][0]; if (mesUnico >= 0 && mesUnico <= L){ marca = mesUnico + .5; depois = mesUnico + 1; } }
+  }
+  const nC = cols.length;
+  const res = grupos.map(({ n, O, k }) => {
+    const cli = new Float64Array(nC), pag = new Float64Array(nC), val = new Float64Array(nC), vistos = new Set();
+    for (let u = 0; u < n; u++){
+      if (!k[u]) continue;
+      const m = O.uMat[u], b = m * nR, t = O.tI[u];
+      if (rel){
+        cols.forEach((o, i) => {
+          const r = t + o;
+          if (r < 0 || r > L || D.semDados[r] || (o > 0 && r > O.fimD[u])) return;
+          cli[i]++; const v = V[b + r]; if (v > 0){ pag[i]++; val[i] += v; }
+        });
+      } else {
+        // no calendário, cada matrícula entra uma vez por mês (por evento, a mesma matrícula pode ter mais de um termo)
+        if (vistos.has(m)) continue; vistos.add(m);
+        for (let r = 0; r <= L; r++){
+          if (D.semDados[r]) continue;
+          cli[r]++; const v = V[b + r]; if (v > 0){ pag[r]++; val[r] += v; }
+        }
+      }
+    }
+    const tk = Array.from(val, (v, i) => pag[i] ? v / pag[i] : null);
+    if (!rel) cols.forEach(r => { if (D.semDados[r]){ cli[r] = NaN; pag[r] = NaN; } });
+    // ticket do período antes e depois (valor somado ÷ pagamentos somados)
+    const per = (de, ate) => { let v = 0, p = 0; for (let i = de; i < ate; i++) if (pag[i] > 0){ v += val[i]; p += pag[i]; } return p ? v / p : null; };
+    const tA = depois == null ? null : rel ? per(0, 12) : per(Math.max(0, mesUnico - 12), mesUnico);
+    const tD = depois == null ? null : rel ? per(12, nC) : per(depois, Math.min(nC, depois + 12));
+    return { cli, pag, val, tk, tA, tD };
+  });
+  return { rel, cols, labels, marca, depois, mesUnico, nMeses, res };
+}
+// linhas em faixas empilhadas, cada faixa com a sua escala (como o gráfico de economias faturadas × tarifa média),
+// com o período depois do termo sombreado, a linha tracejada no termo e o valor em cada ponto
+function graficoLinhas(labels, faixas, opts){
+  if (!labels.length) return SEM_DADOS;
+  const n = labels.length, colW = (GW - GLBL) / n, topo = 22, VAO = 18, H = topo + faixas.reduce((a, f) => a + f.h, 0) + VAO * (faixas.length - 1) + 6;
+  let g = '';
+  if (opts.depois != null && opts.depois < n) g += `<rect x="${GLBL + colW * opts.depois}" y="0" width="${GW - GLBL - colW * opts.depois}" height="${H}" fill="#e9f1f7"/>`;
+  g += `<rect class="realce" x="${GLBL}" y="0" width="${colW}" height="${H}" fill="#dbe7f0" opacity=".7" visibility="hidden"/>`;
+  let y0 = topo;
+  faixas.forEach(f => {
+    const vals = f.series.flatMap(s => s.values.filter(v => v != null && isFinite(v)));
+    if (!vals.length) vals.push(0, 1);
+    const ticks = niceTicks(f.zero ? 0 : Math.min(...vals), Math.max(...vals, 1), 3), lo = ticks[0], hi = ticks[ticks.length - 1];
+    const a = y0 + 22, b = y0 + f.h - 10, y = v => b - (v - lo) / (hi - lo || 1) * (b - a);
+    g += `<text x="0" y="${y0 + 8}" font-size="12" font-weight="600" fill="#102840" font-family="${FONTE_SVG}">${esc(f.titulo)}</text>`;
+    g += eixoSvg(ticks, y, f.eixo);
+    // com duas linhas, o rótulo da maior fica em cima do ponto e o da menor embaixo, para não se sobreporem
+    const rot = f.series.filter(o => !o.semRotulo);
+    const acima = (j, i) => rot.length < 2 || rot.every(o => o === f.series[j] || o.values[i] == null || f.series[j].values[i] >= o.values[i]);
+    f.series.forEach((s, j) => {
+      let d = '', pts = '', ant = false;
+      s.values.forEach((v, i) => {
+        if (v == null || !isFinite(v)){ ant = false; return; }
+        const x = GLBL + colW * i + colW / 2, yy = y(v);
+        d += `${ant ? 'L' : 'M'}${x.toFixed(1)},${yy.toFixed(1)}`; ant = true;
+        if (s.semRotulo) return;
+        pts += `<circle cx="${x}" cy="${yy}" r="3" fill="#fff" stroke="${s.cor}" stroke-width="2"/>`;
+        pts += `<text x="${x}" y="${acima(j, i) ? yy - 8 : yy + 17}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${s.corRot || s.cor}" font-family="${FONTE_SVG}">${esc(s.fmt(v))}</text>`;
+      });
+      g += `<path d="${d}" fill="none" stroke="${s.cor}" stroke-width="${s.semRotulo ? 1.5 : 2.2}"${s.semRotulo ? ' stroke-dasharray="5 4"' : ''} stroke-linejoin="round"/>` + pts;
+    });
+    y0 += f.h + VAO;
+  });
+  if (opts.marca != null){
+    const xm = GLBL + colW * opts.marca;
+    g += `<line x1="${xm}" x2="${xm}" y1="4" y2="${H}" stroke="#102840" stroke-dasharray="4 3"/>`;
+    g += `<text x="${xm + 5}" y="13" font-size="11" fill="#102840" font-family="${FONTE_SVG}">termo</text>`;
+  }
+  return `<svg viewBox="0 0 ${GW} ${H}" role="img" aria-label="${esc(opts.aria)}">${g}</svg>`;
+}
+const fmtTk = v => nf0.format(v), fmtTkTab = v => nf2.format(v);
+const varTk = (a, b) => a && b != null ? (b / a - 1) : null;
+function textoTk(T, nome){
+  if (T.tA == null || T.tD == null) return '';
+  const v = varTk(T.tA, T.tD);
+  return `${nome}: ${brl2.format(T.tA)} antes e ${brl2.format(T.tD)} depois do termo (${pctSig(v)}).`;
+}
+function notaEixo(d){
+  const base = `Ticket médio = valor arrecadado no mês (pela ${{ cred: 'data de crédito', pag: 'data do pagamento', ref: 'referência da fatura' }[P.modo]}) ÷ clientes que pagaram no mês. `;
+  if (d.rel) return base + 'Eixo relativo ao termo: cada cliente fica alinhado pelo mês do próprio termo (linha tracejada; o mês do termo fica fora). Depois do termo, cada mês só inclui quem já chegou nele, por isso os clientes que pagaram caem nos meses mais distantes: compare com a linha tracejada da base (clientes no mês).';
+  return base + 'Eixo do calendário: todos os clientes filtrados em todos os meses. ' + (d.marca != null ? `A linha tracejada marca o mês do termo (${amLabel(D.am0 + d.mesUnico)}).` :
+    d.nMeses > 1 ? `Os termos estão em ${d.nMeses} meses diferentes, então não há um único antes e depois: filtre um só Mês do termo para marcar o termo no gráfico.` : '');
+}
+function renderTicket(k){
+  const d = ticketDados([{ n: D.n, O: D, k }]), T = d.res[0], el = $('#blocoTk');
+  el.innerHTML = graficoLinhas(d.labels, [
+    { titulo: 'Ticket médio (R$)', h: 170, eixo: v => nf0.format(v), series: [{ values: T.tk, cor: '#176b9c', fmt: fmtTk }] },
+    { titulo: 'Clientes que pagaram', h: 140, zero: true, eixo: compacto, series: [
+      { values: [...T.cli].map(v => isNaN(v) ? null : v), cor: '#9AA6B2', semRotulo: true },
+      { values: [...T.pag].map(v => v || (isNaN(v) ? null : 0)), cor: '#102840', fmt: compacto }] }
+  ], { aria: 'Ticket médio de arrecadação e clientes que pagaram, mês a mês', marca: d.marca, depois: d.depois }) +
+  tabelaAlinhada(d.labels, [
+    { nome: nomeUn(0, true) + ' no mês', vals: [...T.cli].map(v => isNaN(v) ? null : v), fmt: v => nf0.format(v), cls: 'mudo' },
+    { nome: 'Pagaram', vals: [...T.pag].map(v => isNaN(v) ? null : v), fmt: v => nf0.format(v) },
+    { nome: 'Valor arrecadado', vals: [...T.val].map((v, i) => isNaN(T.cli[i]) ? null : v), fmt: compacto },
+    { nome: 'Ticket médio (R$)', vals: T.tk, fmt: fmtTkTab, cls: 'forte' }
+  ]);
+  el.dica = { n: d.cols.length, titulo: i => d.rel ? `${plural(Math.abs(d.cols[i]), 'mês', 'meses')} ${d.cols[i] < 0 ? 'antes' : 'depois'} do termo` : d.labels[i], linhas: i => isNaN(T.cli[i]) ? [{ nome: 'Mês sem dados na base', valor: '' }] : [
+    { nome: nomeUn(0, true) + ' no mês', valor: nf0.format(T.cli[i]) },
+    { nome: 'Pagaram', valor: nf0.format(T.pag[i]), cor: '#102840' },
+    { nome: 'Valor arrecadado', valor: brl0.format(T.val[i]) },
+    { nome: 'Ticket médio', valor: T.tk[i] == null ? '–' : brl2.format(T.tk[i]), cor: '#176b9c', cls: 'forte' }
+  ] };
+  const per = textoTk(T, 'Ticket médio nos 12 meses');
+  $('#tkNota').textContent = notaEixo(d) + (per ? ' ' + per : '');
+}
+function renderTicketComp(kT, kC){
+  const nC = D.C ? D.C.n : 0, d = ticketDados([{ n: D.n, O: D, k: kT }, { n: nC, O: D.C, k: kC }]), [T, C] = d.res, el = $('#blocoTkC');
+  const num = a => [...a].map(v => isNaN(v) ? null : v);
+  el.innerHTML = graficoLinhas(d.labels, [
+    { titulo: 'Ticket médio (R$)', h: 200, eixo: v => nf0.format(v), series: [{ values: T.tk, cor: '#176b9c', fmt: fmtTk }, { values: C.tk, cor: '#9AA6B2', corRot: '#5B6774', fmt: fmtTk }] }
+  ], { aria: 'Ticket médio de arrecadação, com e sem termo', marca: d.marca, depois: d.depois }) +
+  tabelaAlinhada(d.labels, [
+    { nome: 'Ticket com termo', vals: T.tk, fmt: fmtTkTab, cor: '#176b9c', cls: 'forte' },
+    { nome: 'Ticket sem termo', vals: C.tk, fmt: fmtTkTab, cor: '#9AA6B2' },
+    { nome: 'Diferença', vals: T.tk.map((v, i) => v == null || C.tk[i] == null ? null : v / C.tk[i] - 1), fmt: v => pctSig(v), cls: 'mudo' },
+    { nome: 'Pagaram com termo', vals: num(T.pag), fmt: v => nf0.format(v), cls: 'mudo' },
+    { nome: 'Pagaram sem termo', vals: num(C.pag), fmt: v => nf0.format(v), cls: 'mudo' }
+  ]);
+  el.dica = { n: d.cols.length, titulo: i => d.rel ? `${plural(Math.abs(d.cols[i]), 'mês', 'meses')} ${d.cols[i] < 0 ? 'antes' : 'depois'} do termo` : d.labels[i], linhas: i => isNaN(T.cli[i]) ? [{ nome: 'Mês sem dados na base', valor: '' }] : [
+    { nome: 'Ticket com termo', valor: T.tk[i] == null ? '–' : brl2.format(T.tk[i]), cor: '#176b9c', cls: 'forte' },
+    { nome: 'Ticket sem termo', valor: C.tk[i] == null ? '–' : brl2.format(C.tk[i]), cor: '#9AA6B2' },
+    'sep',
+    { nome: 'Pagaram com termo', valor: `${nf0.format(T.pag[i])} de ${nf0.format(T.cli[i])}` },
+    { nome: 'Pagaram sem termo', valor: `${nf0.format(C.pag[i])} de ${nf0.format(C.cli[i])}` }
+  ] };
+  const vT = varTk(T.tA, T.tD), vC = varTk(C.tA, C.tD);
+  $('#tkCompNota').textContent = notaEixo(d) + ' A quantidade de clientes que pagaram fica na tabela: a amostra sem termo tem outro tamanho, então só o ticket é comparável no gráfico.' +
+    (vT != null && vC != null ? ` Variação do ticket (12 meses antes × depois): com termo ${pctSig(vT)}, sem termo ${pctSig(vC)}; diferença de ${(vT - vC > 0 ? '+' : vT - vC < 0 ? '−' : '') + nf1.format(Math.abs(vT - vC) * 100)} p.p.` : '');
+}
+
 function renderRodape(){
   const s = D.stats, t = s.termos, nE = D.eMat.length, nM = D.nTermo != null ? D.nTermo : D.mats.length;
   let semArr = 0; for (let m = 0; m < nM; m++) if (!D.temArr[m]) semArr++;
@@ -2534,6 +2717,7 @@ function renderComp(){
   const M5 = o => [0, 1, 2, 3].map(a => Float64Array.from([...o.M[a], o.insufPor[a]])).concat([new Float64Array(5)]);
   renderSankey(M5(T), [0, 1, 2, 3], { el: '#skCompT', leg: '#skCompLeg', nota: '#skCompTNota', onde: 'veja os indicadores acima' });
   renderSankey(M5(C), [0, 1, 2, 3], { el: '#skCompC', leg: null, nota: '#skCompCNota', onde: 'veja os indicadores acima' });
+  renderTicketComp(kT, kC);
 }
 
 /* ---------- Clientes (tabela detalhada) ---------- */
@@ -2737,6 +2921,7 @@ document.querySelectorAll('[data-sk]').forEach(b => b.onclick = () => {
 liga('data-a', 'a', () => renderA(keepMask()));
 liga('data-grupo', 'grupo', () => renderGrupo(keepMask()));
 liga('data-ev', 'ev', () => renderEvento(keepMask()));
+liga('data-tk', 'tk', () => { if (st.tab === 'comp') renderComp(); else renderTicket(keepMask()); });
 document.addEventListener('click', e => {
   const th = e.target.closest('th.sortable'); if (!th) return;
   const id = th.dataset.tabId, s = st.sort[id] || { k: 'tot', dir: -1 };
@@ -2752,7 +2937,7 @@ $('#tblMatriz').addEventListener('click', e => {
   $('#cSearch').value = '';
   montaFiltros(); showTab('cons');
 });
-ligaDica($('#blocoA')); ligaDica($('#blocoB')); ligaDica($('#blocoD')); ligaDica($('#blocoEv')); ligaDica($('#blocoCompP')); ligaDica($('#blocoCompM'));
+ligaDica($('#blocoA')); ligaDica($('#blocoB')); ligaDica($('#blocoD')); ligaDica($('#blocoEv')); ligaDica($('#blocoCompP')); ligaDica($('#blocoCompM')); ligaDica($('#blocoTk')); ligaDica($('#blocoTkC'));
 let tSearch; $('#cSearch').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(() => renderCons(true), 250); };
 $('#cSort').onchange = () => renderCons(true);
 $('#pPrev').onclick = () => { st.page--; renderCons(false); $('#tblCons').scrollTop = 0; };

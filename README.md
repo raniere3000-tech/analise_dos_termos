@@ -15,6 +15,7 @@ Painel em HTML que cruza a base de termos aplicados em 2026 com a base de arreca
 5. **Configuração da análise** (faixa logo abaixo das abas): **Base de cálculo** (com faturamento ou só arrecadação), **Mês vigente**, **Data do termo** (negociação ou aplicação) e **Mínimo de meses depois** do termo.
    **Filtros**: os principais ficam à vista; o botão **Todos os filtros** abre uma gaveta com todos, agrupados. Os filtros ativos aparecem como etiquetas; o ✕ tira o filtro.
    No cartão **Perfil antes × depois**, abaixo da matriz, o **fluxo antes → depois** mostra em faixas para onde foram os clientes de cada classificação.
+   O cartão **Ticket médio de arrecadação** mostra, mês a mês, o valor arrecadado dividido pelos clientes que pagaram e a quantidade de clientes que pagaram, com o botão **Relativo ao termo** (cada cliente alinhado pelo mês do próprio termo) ou **Calendário** (meses reais; a linha do termo aparece quando há um só mês do termo filtrado).
    A aba **Comparação sem termo** compara os clientes com termo com uma amostra de clientes sem termo (5% da base), com as mesmas regras, para separar o efeito do termo da inadimplência normal.
 6. **Mês vigente** (ao lado das abas): abre no mês atual. Os termos desse mês ficam fora, a análise vai até o mês anterior, e os pagamentos do mês vigente só contam como pagamento com atraso de contas dos meses anteriores.
 
@@ -48,7 +49,7 @@ Sem a pasta Faturamento, todos os meses são observados, e um mês sem pagamento
 
 ## Versão anterior
 
-As versões 1.1 e 2.0 continuam disponíveis em `versoes/` e nos branches `versao-1.1` e `versao-2.0`.
+As versões anteriores (1.1 e 2.0 a 2.10) continuam disponíveis em `versoes/` e nos branches `versao-1.1` e `versao-2.0` a `versao-2.10`.
 
 ## Privacidade
 

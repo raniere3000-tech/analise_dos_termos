@@ -285,3 +285,40 @@ print(f"Sem termo (amostra): {cc['total']} | comparáveis: {cc['comp']} | melhor
 print('Matriz (linhas = antes, colunas = depois):', ' '.join(f'{f[:6]:>7}' for f in FAIXAS))
 for a in range(4):
     print(f'  {FAIXAS[a]:<13}', ' '.join(f'{x:>7}' for x in M[a]), f'| {sum(M[a]):>6}')
+
+
+def ticket(unidades):
+    """Ticket médio (v2.11): valor arrecadado no mês ÷ clientes que pagaram no mês, nos eixos relativo e calendário."""
+    rel = {}   # deslocamento -> [clientes no mês, pagaram, valor]
+    for k, t, prox in unidades:
+        fim = min(ult, t + 12)
+        if prox is not None and prox - 1 < fim:
+            fim = prox - 1
+        for o in [*range(-12, 0), *range(1, 13)]:
+            m = t + o
+            if not ok(m) or (o > 0 and m > fim):
+                continue
+            x = rel.setdefault(o, [0, 0, 0.0])
+            v = pag.get((k, m), 0)
+            x[0] += 1
+            if v > 0:
+                x[1] += 1; x[2] += v
+    cal = {}
+    for k in {k for k, _, _ in unidades}:
+        for m in range(min_am, ult + 1):
+            if not ok(m):
+                continue
+            x = cal.setdefault(m, [0, 0, 0.0])
+            v = pag.get((k, m), 0)
+            x[0] += 1
+            if v > 0:
+                x[1] += 1; x[2] += v
+    per = lambda d, ks: sum(d[o][2] for o in ks if o in d) / max(1, sum(d[o][1] for o in ks if o in d))
+    return rel, cal, per(rel, range(-12, 0)), per(rel, range(1, 13))
+
+
+for nome, un in (('Com termo', un_termo), ('Sem termo', un_ctrl)):
+    rel, cal, ta, td = ticket(un)
+    print(f'Ticket {nome}: antes R$ {ta:,.2f}, depois R$ {td:,.2f} ({(td / ta - 1) * 100:+.1f}%)')
+    print('  relativo:', ' '.join(f'{o:+d}:{rel[o][1]}/{rel[o][0]}={rel[o][2] / rel[o][1]:.2f}' for o in sorted(rel) if rel[o][1] and o in (-12, -1, 1, 3, 6)))
+    print('  calendário:', ' '.join(f'{rot(m)}:{cal[m][1]}/{cal[m][0]}={cal[m][2] / cal[m][1]:.2f}' for m in sorted(cal) if cal[m][1] and m in (min_am, min_am + 12, ult)))
