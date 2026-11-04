@@ -2,11 +2,16 @@
 
 Uso: python tests/conferir_totais.py PASTA [MES_VIGENTE=AAAA-MM] [modo=cred|pag|ref] [unidade=mat|evento] [fat=1|0] [tolerancia=1] [data=neg|apl] [minimo=3]
 
+unidade=mat é a contagem Por cliente; unidade=evento, a contagem Por termo (v3.0).
+
 Regras (as mesmas do painel):
 - Termos: arquivo com "termo" no nome, só a aba Termos. Mês do termo = Data de negociação (sem ela, Data de aplicação),
   ou o contrário com data=apl.
   Termos com Valor 0 ficam fora. Termos da mesma matrícula no mesmo mês são um evento só. Unidade "mat" usa o
-  primeiro termo do ano de cada matrícula.
+  primeiro termo do ano de cada matrícula; "evento" usa cada termo, com o antes do primeiro termo da matrícula (v3.0).
+- Reincidência (v3.0): termos de 2025 e com Valor 0 não entram na análise, mas marcam termo anterior ou posterior.
+  Reincidentes (aba própria): matrículas com mais de um termo analisado, nas visões "antes do 1º termo" e "cada termo
+  como ponto de partida" (antes do próprio termo).
 - Mês pago: soma do Valor Pago no mês > 0 (pela Data Crédito, pela Data Pagto. ou pela referência Mês/Ano).
 - Mês vigente: termos dele (ou depois) ficam fora; a análise vai até o mês anterior.
 - Faturamento (tabelas com a coluna Rubrica): conta do mês = VALOR DE AGUA + VALOR DE ESGOTO pela Data de Vencimento.
@@ -14,9 +19,8 @@ Regras (as mesmas do painel):
   (Vencimento da arrecadação no mês r) até o mês r + tolerância, e no máximo no mês vigente.
 - Mês sem dados: mês sem nenhum pagamento na base inteira (ou sem faturamento, com fat=1); fica fora das janelas.
 - Média mensal: valor arrecadado no período / meses do período com dados.
-- Antes: 12 meses anteriores ao mês do termo. 10 a 12 pagos (proporcional, ≥ 10/12) Adimplente, ≥ 6/12 Flutuante, > 0 Inadimplente, 0 Nunca pagou.
-- Depois: do mês seguinte ao termo até o último mês completo, no máximo 12 meses, e até o mês anterior ao próximo termo
-  da mesma matrícula. Menos de 3 meses: acompanhamento insuficiente. ≥ 83,3% Adimplente, ≥ 50% Flutuante, > 0 Inadimplente, 0 Nunca pagou.
+- Antes: 12 meses anteriores ao mês do termo (na contagem por termo, ao mês do primeiro termo da matrícula). 10 a 12 pagos (proporcional, ≥ 10/12) Adimplente, ≥ 6/12 Flutuante, > 0 Inadimplente, 0 Nunca pagou.
+- Depois: do mês seguinte ao termo até o último mês completo, no máximo 12 meses (sem cortar no termo seguinte). Menos de 3 meses: acompanhamento insuficiente. ≥ 83,3% Adimplente, ≥ 50% Flutuante, > 0 Inadimplente, 0 Nunca pagou.
 """
 import csv
 import os
@@ -111,6 +115,7 @@ def hash_lig(k):
 
 arquivos = sorted(os.path.join(r, f) for r, _, fs in os.walk(pasta) for f in fs if f.lower().endswith(('.xlsx', '.csv')))
 termos = {}   # matrícula -> {mês: data mais antiga}
+outros = {}   # matrícula -> meses dos termos de 2025 e com Valor 0 (só marcam reincidência)
 com_termo = set()   # matrículas com alguma linha válida de 2026 (qualquer data): não entram na amostra de comparação
 for a in arquivos:
     if 'termo' not in os.path.basename(a).lower():
@@ -125,7 +130,13 @@ for a in arquivos:
             k = lig(l[il])
             if k and num(l[ival]) > 0 and any(x and x[0] // 12 == 2026 for x in (data(l[ineg]), data(l[iapl]))):
                 com_termo.add(k)
-            d = (data(l[ineg]) or data(l[iapl])) if DATA == 'neg' else (data(l[iapl]) or data(l[ineg]))
+            dn, dl = data(l[ineg]), data(l[iapl])
+            d = (dn or dl) if DATA == 'neg' else (dl or dn)
+            em = lambda a: any(x and x[0] // 12 == a for x in (dn, dl))
+            # termo de 2025 (nenhuma data em 2026, alguma em 2025), com Valor 0 (alguma data em 2026) ou válido com a
+            # data escolhida em 2025: marca reincidência
+            if k and d and ((not em(2026) and em(2025)) or (em(2026) and not num(l[ival]) > 0) or (em(2026) and num(l[ival]) > 0 and d[0] // 12 == 2025)):
+                outros.setdefault(k, []).append(d[0])
             if not k or not d or d[0] // 12 != 2026 or not num(l[ival]) > 0:
                 continue
             ev = termos.setdefault(k, {})
@@ -215,13 +226,11 @@ M = [[0] * 5 for _ in range(4)]
 motivos = [0] * 5   # insuficiente: 1 recente, 2 outro termo, 3 sem dados, 4 sem conta
 
 
-def classifica(k, t, prox):
-    """Classificação de uma unidade (mesmas regras do painel). Devolve (antes, depois, média antes, média depois, motivo)."""
+def classifica(k, t, ta):
+    """Classificação de uma unidade (mesmas regras do painel): termo no mês t, período antes definido pelo mês ta.
+    Devolve (antes, depois, média antes, média depois, motivo)."""
     fim = min(ult, t + 12)
-    corte = False   # com a matrícula como unidade, o primeiro termo vai até o fim (v2.6)
-    if prox is not None and prox - 1 < fim:
-        fim, corte = prox - 1, True
-    ja = [m for m in range(t - 12, t) if ok(m)]
+    ja = [m for m in range(ta - 12, ta) if ok(m)]
     jd = [m for m in range(t + 1, fim + 1) if ok(m)]
     va, vd = [pag.get((k, m), 0) for m in ja], [pag.get((k, m), 0) for m in jd]   # valores: todos os meses com dados
     uc = ult_conta.get(k)
@@ -232,16 +241,16 @@ def classifica(k, t, prox):
     ca, cd = antes(sum(oa), len(oa)), depois(sum(od), len(od))
     mot = 0
     if cd == 4:
-        mot = 1 if min(ult, t + 12) - t < MIN else 2 if corte and fim - t < MIN else 3 if len(jd) < MIN else 4
+        mot = 1 if fim - t < MIN else 3 if len(jd) < MIN else 4
     return ca, cd, (sum(va) / len(va) if va else 0), (sum(vd) / len(vd) if vd else 0), mot
 
 
 def soma(unidades):
     c = dict(total=0, comp=0, melhorou=0, piorou=0, igual=0, insuf=0, semhist=0, naopag=0, recup=0, mA=0.0, mD=0.0)
     M = [[0] * 5 for _ in range(4)]
-    for k, t, prox in unidades:
+    for k, t, ta in unidades:
         c['total'] += 1
-        ca, cd, ma, md, mot = classifica(k, t, prox)
+        ca, cd, ma, md, mot = classifica(k, t, ta)
         if cd == 4:
             motivos[mot] += 1 if unidades is un_termo else 0
         if ca < 0:
@@ -268,11 +277,11 @@ for k, evs in termos.items():
             break
         if t >= vig:   # termo do mês vigente: fora
             continue
-        un_termo.append((k, t, meses[i + 1] if UNIDADE == 'evento' and i + 1 < len(meses) else None))
+        un_termo.append((k, t, meses[0]))
 c, M = soma(un_termo)
 # amostra de comparação: mês de referência sorteado entre os meses das unidades com termo
 dist = sorted(t for _, t, _ in un_termo)
-un_ctrl = [(k, dist[(hash_lig(k) // 100) % len(dist)], None) for k in sorted(amostra)]
+un_ctrl = [(k, dist[(hash_lig(k) // 100) % len(dist)], dist[(hash_lig(k) // 100) % len(dist)]) for k in sorted(amostra)]
 cc, _ = soma(un_ctrl)
 
 rot = lambda a: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][a % 12] + '/' + str(a // 12)[2:]
@@ -288,14 +297,13 @@ for a in range(4):
 
 
 def ticket(unidades):
-    """Ticket médio (v2.11): valor arrecadado no mês ÷ clientes que pagaram no mês, nos eixos relativo e calendário."""
+    """Ticket médio (v2.11): valor arrecadado no mês ÷ clientes que pagaram no mês, nos eixos relativo e calendário.
+    No eixo relativo, os meses antes contam a partir do mês que define o período antes (v3.0)."""
     rel = {}   # deslocamento -> [clientes no mês, pagaram, valor]
-    for k, t, prox in unidades:
+    for k, t, ta in unidades:
         fim = min(ult, t + 12)
-        if prox is not None and prox - 1 < fim:
-            fim = prox - 1
         for o in [*range(-12, 0), *range(1, 13)]:
-            m = t + o
+            m = (ta if o < 0 else t) + o
             if not ok(m) or (o > 0 and m > fim):
                 continue
             x = rel.setdefault(o, [0, 0, 0.0])
@@ -322,3 +330,42 @@ for nome, un in (('Com termo', un_termo), ('Sem termo', un_ctrl)):
     print(f'Ticket {nome}: antes R$ {ta:,.2f}, depois R$ {td:,.2f} ({(td / ta - 1) * 100:+.1f}%)')
     print('  relativo:', ' '.join(f'{o:+d}:{rel[o][1]}/{rel[o][0]}={rel[o][2] / rel[o][1]:.2f}' for o in sorted(rel) if rel[o][1] and o in (-12, -1, 1, 3, 6)))
     print('  calendário:', ' '.join(f'{rot(m)}:{cal[m][1]}/{cal[m][0]}={cal[m][2] / cal[m][1]:.2f}' for m in sorted(cal) if cal[m][1] and m in (min_am, min_am + 12, ult)))
+
+
+# reincidência (v3.0): termo anterior e posterior de cada unidade
+def marcas(k, t):
+    meses = sorted(termos[k])
+    o = outros.get(k, [])
+    return (meses[0] < t or any(a < t for a in o)), (meses[-1] > t or any(a > t for a in o))
+
+
+ant = sum(marcas(k, t)[0] for k, t, _ in un_termo)
+post = sum(marcas(k, t)[1] for k, t, _ in un_termo)
+print(f'Termo anterior: {ant} | termo posterior: {post} (de {len(un_termo)}); termos que só marcam reincidência: {sum(len(v) for k, v in outros.items() if k in termos)}')
+
+# aba Reincidentes: matrículas com mais de um termo analisado; visão A (antes do 1º termo) e B (antes do próprio termo)
+analisados = {k: [t for t in sorted(ev) if t < vig] for k, ev in termos.items()}
+reinc = {k: ts for k, ts in analisados.items() if len(ts) > 1}
+un_a = [(k, t, ts[0]) for k, ts in sorted(reinc.items()) for t in ts]
+un_b = [(k, t, t) for k, ts in sorted(reinc.items()) for t in ts]
+for nome, un in (('A antes do 1º termo', un_a), ('B ponto de partida', un_b)):
+    r, _ = soma(un)
+    ordem = {}
+    for k, t, ta in un:
+        ca, cd, *_ = classifica(k, t, ta)
+        g = ordem.setdefault(min(2, reinc[k].index(t)), [0, 0, 0, 0])   # termos, melhorou, permaneceu, piorou
+        g[0] += 1
+        if ca >= 0 and cd != 4:
+            g[1 if cd < ca else 2 if cd == ca else 3] += 1
+    print(f"Reincidentes {nome}: {len(reinc)} matrículas, {r['total']} termos | comparáveis {r['comp']} | melhoraram {r['melhorou']} | pioraram {r['piorou']} | permaneceram {r['igual']} | insuficiente {r['insuf']} | sem histórico {r['semhist']} | recuperados {r['recup']} de {r['naopag']}")
+    print('  por ordem (termos, melhorou, permaneceu, piorou):', ' '.join(f'{i + 1}º:{ordem[i]}' for i in sorted(ordem)))
+traj, fora = {}, 0
+for k, ts in sorted(reinc.items()):
+    ca, cd1, *_ = classifica(k, ts[0], ts[0])
+    _, cd2, *_ = classifica(k, ts[1], ts[0])
+    if cd1 == 4 or cd2 == 4:
+        fora += 1
+        continue
+    ch = (4 if ca < 0 else ca, cd1, cd2)
+    traj[ch] = traj.get(ch, 0) + 1
+print(f'Trajetória: {sum(traj.values())} clientes, {fora} fora; mais comuns:', ', '.join(f'{FAIXAS[a][:5] if a < 4 else "SemH"}>{FAIXAS[b][:5]}>{FAIXAS[c][:5]}:{v}' for (a, b, c), v in sorted(traj.items(), key=lambda x: -x[1])[:4]))

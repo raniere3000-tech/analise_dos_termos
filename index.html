@@ -363,7 +363,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v2.10</span>
+      <span class="versao" id="versao" title="Versão do painel">v3.0</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -388,12 +388,20 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <button type="button" class="aba active" data-tab="resumo" aria-pressed="true">Resumo</button>
     <button type="button" class="aba" data-tab="cons" aria-pressed="false">Clientes</button>
     <button type="button" class="aba" data-tab="comp" aria-pressed="false">Comparação sem termo</button>
+    <button type="button" class="aba" data-tab="reinc" aria-pressed="false">Reincidentes</button>
   </div>
 </nav>
 
 <div class="barras" id="barras" hidden>
   <section class="barra" aria-label="Configuração da análise">
     <span class="barra-tit">Configuração da análise</span>
+    <div class="cfg">
+      <span class="cfg-rot">Contagem</span>
+      <div class="seg" role="group" aria-label="Contagem">
+        <button type="button" data-un="mat" aria-pressed="true" title="Uma linha por cliente, com o primeiro termo do ano acompanhado até o fim">Por cliente</button>
+        <button type="button" data-un="evento" aria-pressed="false" title="Cada termo é uma linha; o período antes de todos é o do primeiro termo do cliente">Por termo</button>
+      </div>
+    </div>
     <div class="cfg">
       <span class="cfg-rot">Base de cálculo</span>
       <div class="seg" role="group" aria-label="Base de cálculo">
@@ -454,12 +462,6 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
       <details class="param" id="paramBox">
         <summary>Ajustar parâmetros</summary>
         <div class="param-grid">
-          <label class="field">Unidade de análise
-            <select id="pUnidade">
-              <option value="mat">Matrícula única (primeiro termo do ano)</option>
-              <option value="evento">Cada termo aplicado (evento)</option>
-            </select>
-          </label>
           <label class="field">Mês do pagamento
             <select id="pModo">
               <option value="cred">Data de crédito</option>
@@ -672,6 +674,70 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
       </div>
       <div class="legenda"><span><i style="background:var(--azul)"></i>Com termo</span><span><i style="background:#9AA6B2"></i>Sem termo</span><span><i style="background:#e9f1f7;border:1px solid #c9d6e2"></i>Depois do termo</span></div>
       <div class="bloco-rolagem"><div class="bloco largo" id="blocoTkC"></div></div>
+    </div>
+  </section>
+
+  <!-- Reincidentes (v3.0): clientes com mais de um termo analisado, em duas visões -->
+  <section id="view-reinc" hidden>
+    <div class="card">
+      <h2>Clientes reincidentes</h2>
+      <p class="regra" id="rcNota"></p>
+      <p class="limite" id="rcAviso" hidden></p>
+    </div>
+    <div class="card">
+      <div class="card-topo"><div><h2>Indicadores lado a lado</h2><p class="nota-secao">Os mesmos termos nas duas visões. A diferença mostra quanto a visão pelo antes do 1º termo ficou acima ou abaixo da visão com cada termo como ponto de partida.</p></div></div>
+      <div class="tabela-wrap" id="tblRc"></div>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div><h2>Trajetória: antes do 1º termo → depois do 1º → depois do 2º</h2><p class="nota-secao" id="rcTrajNota"></p></div>
+      </div>
+      <div class="legenda sk-leg" id="rcTrajLeg"></div>
+      <div class="bloco-rolagem"><div class="sankey" id="rcTraj"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div><h2>Resultado por ordem do termo</h2><p class="nota-secao">Percentual dos termos comparáveis (com acompanhamento suficiente) que melhoraram, permaneceram ou pioraram. No 1º termo as duas visões são iguais.</p></div>
+        <div class="legenda"><span><i style="background:var(--melhora)"></i>Melhorou</span><span><i style="background:var(--permanece)"></i>Permaneceu</span><span><i style="background:var(--piora)"></i>Piorou</span></div>
+      </div>
+      <div class="comp-graf">
+        <div><p class="comp-sub">Antes do 1º termo</p><div class="bloco-rolagem"><div class="bloco comp-bloco" id="rcOrdA"></div></div></div>
+        <div><p class="comp-sub">Cada termo como ponto de partida</p><div class="bloco-rolagem"><div class="bloco comp-bloco" id="rcOrdB"></div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-topo"><div><h2>Perfil antes × depois, em % da linha</h2><p class="nota-secao">Cada linha soma 100%, contando só os termos com acompanhamento suficiente.</p></div></div>
+      <div class="comp-graf"><div><p class="comp-sub">Antes do 1º termo</p><div class="tabela-wrap" id="rcMatA"></div></div><div><p class="comp-sub">Cada termo como ponto de partida</p><div class="tabela-wrap" id="rcMatB"></div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div><h2>Fluxo antes → depois</h2><p class="nota-secao">O depois de cada termo é o mesmo nas duas visões; muda só a classificação antes. Passe o mouse para ver os números.</p></div>
+        <div class="seg" role="group" aria-label="Cor das faixas">
+          <button type="button" data-sk="origem" aria-pressed="true">Cor pela classificação antes</button>
+          <button type="button" data-sk="res" aria-pressed="false">Cor pelo resultado</button>
+        </div>
+      </div>
+      <div class="legenda sk-leg" id="rcSkLeg"></div>
+      <p class="comp-sub" style="margin-top:12px">Antes do 1º termo</p>
+      <p class="nota-secao" id="rcSkANota" style="margin:0"></p>
+      <div class="bloco-rolagem"><div class="sankey" id="rcSkA"></div></div>
+      <p class="comp-sub" style="margin-top:18px">Cada termo como ponto de partida</p>
+      <p class="nota-secao" id="rcSkBNota" style="margin:0"></p>
+      <div class="bloco-rolagem"><div class="sankey" id="rcSkB"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div><h2>Pagamento mês a mês em relação ao termo</h2><p class="nota-secao" id="rcEvNota"></p></div>
+      </div>
+      <div class="legenda"><span><i style="background:var(--marinho)"></i>Antes do 1º termo</span><span><i style="background:#E8710A"></i>Cada termo como ponto de partida</span><span><i style="background:#e9f1f7;border:1px solid #c9d6e2"></i>Depois do termo</span></div>
+      <div class="bloco-rolagem"><div class="bloco largo" id="rcEv"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div><h2>Ticket médio de arrecadação</h2><p class="nota-secao" id="rcTkNota"></p></div>
+      </div>
+      <div class="legenda"><span><i style="background:var(--marinho)"></i>Antes do 1º termo</span><span><i style="background:#E8710A"></i>Cada termo como ponto de partida</span><span><i style="background:#e9f1f7;border:1px solid #c9d6e2"></i>Depois do termo</span></div>
+      <div class="bloco-rolagem"><div class="bloco largo" id="rcTk"></div></div>
     </div>
   </section>
 
@@ -1054,7 +1120,9 @@ const HOJE_AM = (() => { const c = new Date(); return c.getFullYear() * 12 + c.g
 class Termos {
   constructor(){
     this.m = new Map();
-    this.st = { linhas: 0, foraAno: 0, semData: 0, valorZero: 0, arquivos: [], semColunaData: [], colData: '', temNeg: false, temApl: false };
+    // termos que não entram na análise, mas marcam reincidência (v3.0): de 2025 (tipo 1) e com Valor 0 (tipo 2)
+    this.outros = new Map();
+    this.st = { linhas: 0, foraAno: 0, semData: 0, valorZero: 0, outros: 0, arquivos: [], semColunaData: [], colData: '', temNeg: false, temApl: false };
   }
   // aba Termos, quando existir; senão todas, menos a de resumo
   static abas(lista){
@@ -1074,10 +1142,15 @@ class Termos {
       apl = di;
     }
     if (!neg && !apl){ this.st.semData++; return; }
-    const ano = d => d && Math.floor(d.am / 12) === ANO_TERMO;
-    if (!ano(neg) && !ano(apl)){ this.st.foraAno++; return; }
-    // termo com Valor = 0 (isento ou cancelado) fica fora da análise (definido pelo usuário)
-    if (h.valor !== undefined && !(toNum(c[h.valor]) > 0)){ this.st.valorZero++; return; }
+    const ano = (d, a) => d && Math.floor(d.am / 12) === a;
+    const outro = tipo => { let l = this.outros.get(mk); if (!l){ l = []; this.outros.set(mk, l); } l.push({ neg, apl, tipo }); this.st.outros++; };
+    if (!ano(neg, ANO_TERMO) && !ano(apl, ANO_TERMO)){
+      this.st.foraAno++;
+      if (ano(neg, ANO_TERMO - 1) || ano(apl, ANO_TERMO - 1)) outro(1);
+      return;
+    }
+    // termo com Valor = 0 (isento ou cancelado) fica fora da análise (definido pelo usuário), mas marca reincidência
+    if (h.valor !== undefined && !(toNum(c[h.valor]) > 0)){ this.st.valorZero++; outro(2); return; }
     const v = { neg, apl, tipo: h.tipo !== undefined ? str(c[h.tipo]) : '', valor: h.valor !== undefined ? toNum(c[h.valor]) : 0,
       cid: h.cid !== undefined ? str(c[h.cid]) : '', zona: h.zona !== undefined ? str(c[h.zona]) : '', util: h.util !== undefined ? str(c[h.util]) : '',
       nome: h.nome !== undefined ? str(c[h.nome]) : '', x: EXTRAS.map(x => h['x_' + x.k] !== undefined ? str(c[h['x_' + x.k]]) : '') };
@@ -1169,7 +1242,7 @@ class Arrecadacao {
     if (h.dcred !== undefined && !dc) this.st.semCred++;
     this.rMat.push(mi); this.rRef.push(ref); this.rPag.push(pag); this.rCred.push(cred); this.rVenc.push(vc ? vc.am : -1); this.rVal.push(valor);
   }
-  build(termos){
+  build(termos, outros){
     // eixo de meses: o período dos pagamentos (Data Pagto.); sem essa coluna, o das referências
     const temPag = this.maxPag >= 0;
     let minT = Infinity;
@@ -1218,10 +1291,15 @@ class Arrecadacao {
       tValor[i] = t.valor; tTipo[i] = this.d.tipo.id(t.tipo || '(sem tipo)'); tCid[i] = dCid.id(t.cid || '(vazio)');
       EXTRAS.forEach((x, j) => { tExtra[x.k][i] = this.d[x.k].id(t.x[j] || '(vazio)'); });
     });
+    // outros termos (2025 e Valor 0) das matrículas com termo analisado: só marcam reincidência
+    const ol = [];
+    for (let m = 0; m < this.nTermo; m++) for (const e of (outros.get(this.mats[m]) || [])) ol.push({ m, e });
+    const oMat = new Int32Array(ol.length), oNeg = new Int32Array(ol.length), oApl = new Int32Array(ol.length), oTipo = new Uint8Array(ol.length);
+    ol.forEach((v, i) => { oMat[i] = v.m; oNeg[i] = v.e.neg ? v.e.neg.am : -1; oApl[i] = v.e.apl ? v.e.apl.am : -1; oTipo[i] = v.e.tipo; });
     const st = this.st;
     return {
       am0, nR, temPag, ultData: this.ultData, mats: this.mats, nTermo: this.nTermo, nomes, zona, util, temArr, valRef, valPag, valCred, credVenc, temVenc,
-      tMat, tNeg, tApl, tNegTxt, tAplTxt, tValor, tTipo, tCid, tExtra, extraNomes: EXTRAS.map(x => ({ k: x.k, nome: x.nome, lista: this.d[x.k].list })),
+      tMat, tNeg, tApl, tNegTxt, tAplTxt, tValor, tTipo, tCid, tExtra, oMat, oNeg, oApl, oTipo, extraNomes: EXTRAS.map(x => ({ k: x.k, nome: x.nome, lista: this.d[x.k].list })),
       dict: { zona: this.d.zona.list, util: this.d.util.list, tipo: this.d.tipo.list, cid: dCid.list },
       stats: { linhas: st.linhas, linhasTermo: st.linhasTermo, linhasCtrl: st.linhasCtrl, repetidas: st.repetidas, valorZero: st.valorZero, semMes: st.semMes, semLig: st.semLig, refFora,
         sit: [...st.sit.entries()].sort((a, b) => b[1] - a[1]), porMes: [...st.porMes.entries()].sort((a, b) => a[0] - b[0]),
@@ -1345,18 +1423,18 @@ async function processFiles(files){
   }
   if (!A.st.linhas) throw new Error('Nenhum pagamento encontrado. Confira se os arquivos de arrecadação têm as colunas Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.');
   progress('Montando o consolidado', 'Organizando os pagamentos por cliente e mês…', 1, true);
-  const d = A.build(T.m);
+  const d = A.build(T.m, T.outros);
   F.build(d);
   // exemplos de número de ligação de cada base, para conferir se estão no mesmo formato
   d.stats.exLig = { termos: [...T.m.keys()].slice(0, 5), arrecadacao: A.exLig };
   d.stats.termos = { linhas: T.st.linhas, foraAno: T.st.foraAno, semData: T.st.semData, arquivos: T.st.arquivos, semColunaData: T.st.semColunaData,
-    colData: T.st.colData, valorZero: T.st.valorZero, temNeg: T.st.temNeg, temApl: T.st.temApl };
+    colData: T.st.colData, valorZero: T.st.valorZero, outros: T.st.outros, temNeg: T.st.temNeg, temApl: T.st.temApl };
   return d;
 }
 self.onmessage = async ev => {
   try {
     const d = await processFiles(ev.data.files);
-    const tr = [d.zona, d.util, d.temArr, d.valRef, d.valPag, d.valCred, d.credVenc, d.fat, d.fatUlt, d.fatSitLig, d.tMat, d.tNeg, d.tApl, d.tValor, d.tTipo, d.tCid, ...Object.values(d.tExtra)].map(a => a.buffer);
+    const tr = [d.zona, d.util, d.temArr, d.valRef, d.valPag, d.valCred, d.credVenc, d.fat, d.fatUlt, d.fatSitLig, d.tMat, d.tNeg, d.tApl, d.tValor, d.tTipo, d.tCid, d.oMat, d.oNeg, d.oApl, d.oTipo, ...Object.values(d.tExtra)].map(a => a.buffer);
     self.postMessage({ type: 'done', data: d }, tr);
   } catch (err){
     self.postMessage({ type: 'error', message: err && err.message ? err.message : String(err) });
@@ -1369,7 +1447,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '2.11';
+const VERSAO_SITE = '3.0';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1556,13 +1634,19 @@ function atualizaStatus(){
    um evento só (vale a data mais antiga e a quantidade fica registrada). */
 function montaEventos(){
   const usaNeg = P.dataTermo !== 'apl', nL = D.tMat.length;
-  const est = { foraAno: 0, outraData: 0, mesmoMes: 0 };
+  const est = { foraAno: 0, outraData: 0, mesmoMes: 0, outros: [0, 0, 0] };
   const porMat = new Map();
+  // meses dos termos que não entram na análise, por matrícula (v3.0): só marcam termo anterior ou posterior
+  const outros = new Map(), poeOutro = (m, am) => { let l = outros.get(m); if (!l){ l = []; outros.set(m, l); } l.push(am); };
   const ord = t => t.split('/').reverse().join('');
   for (let i = 0; i < nL; i++){
     const a1 = usaNeg ? D.tNeg[i] : D.tApl[i], a2 = usaNeg ? D.tApl[i] : D.tNeg[i];
     const am = a1 >= 0 ? a1 : a2, txt = a1 >= 0 ? (usaNeg ? D.tNegTxt[i] : D.tAplTxt[i]) : (usaNeg ? D.tAplTxt[i] : D.tNegTxt[i]);
-    if (am < 0 || Math.floor(am / 12) !== 2026){ est.foraAno++; continue; }
+    if (am < 0 || Math.floor(am / 12) !== 2026){
+      est.foraAno++;
+      if (am >= 0 && Math.floor(am / 12) === 2025){ poeOutro(D.tMat[i], am); est.outros[1]++; }
+      continue;
+    }
     if (a1 < 0) est.outraData++;
     const m = D.tMat[i];
     let l = porMat.get(m); if (!l){ l = []; porMat.set(m, l); }
@@ -1571,16 +1655,29 @@ function montaEventos(){
     est.mesmoMes++; o.qtd++;
     if (ord(txt) < ord(o.txt)){ o.txt = txt; o.i = i; }
   }
+  // termos de 2025 e com Valor 0 (lidos a partir da v3.0), pela mesma data escolhida
+  const nO = D.oMat ? D.oMat.length : 0;
+  for (let i = 0; i < nO; i++){
+    const a1 = usaNeg ? D.oNeg[i] : D.oApl[i], am = a1 >= 0 ? a1 : (usaNeg ? D.oApl[i] : D.oNeg[i]);
+    if (am >= 0){ poeOutro(D.oMat[i], am); est.outros[D.oTipo[i]]++; }
+  }
   const ev = [];
-  for (const [m, l] of porMat){ l.sort((a, b) => a.am - b.am); l.forEach((e, j) => ev.push({ m, e, seq: j + 1, n: l.length, prox: j + 1 < l.length ? l[j + 1].am : -1 })); }
+  for (const [m, l] of porMat){ l.sort((a, b) => a.am - b.am); l.forEach((e, j) => ev.push({ m, e, seq: j + 1, n: l.length, prim: l[0].am, ult: l[l.length - 1].am })); }
   ev.sort((a, b) => a.m - b.m || a.e.am - b.e.am);
   const nE = ev.length;
-  D.eMat = new Int32Array(nE); D.eAm = new Int32Array(nE); D.eProx = new Int32Array(nE); D.eSeq = new Uint8Array(nE); D.eNum = new Uint8Array(nE);
+  // Termo anterior: outro termo analisado antes, ou termo de 2025 ou com Valor 0 em mês anterior. Termo posterior: o
+  // mesmo, em mês posterior. Termo no mesmo mês não conta (os analisados do mesmo mês já viram um termo só).
+  // ePrim: mês do 1º termo da matrícula, que define o período antes na contagem por termo (v3.0).
+  D.eMat = new Int32Array(nE); D.eAm = new Int32Array(nE); D.ePrim = new Int32Array(nE); D.eSeq = new Uint8Array(nE); D.eNum = new Uint8Array(nE);
+  D.eAnt = new Uint8Array(nE); D.ePost = new Uint8Array(nE);
   D.eQtd = new Uint8Array(nE); D.eValor = new Float64Array(nE); D.eTipo = new Uint16Array(nE); D.eCid = new Uint16Array(nE); D.eData = [];
   D.extra = {}; (D.extraNomes || []).forEach(x => { D.extra[x.k] = new Uint16Array(nE); });
   ev.forEach((v, j) => {
     const i = v.e.i;
-    D.eMat[j] = v.m; D.eAm[j] = v.e.am; D.eProx[j] = v.prox; D.eSeq[j] = Math.min(255, v.seq); D.eNum[j] = Math.min(255, v.n);
+    D.eMat[j] = v.m; D.eAm[j] = v.e.am; D.ePrim[j] = v.prim; D.eSeq[j] = Math.min(255, v.seq); D.eNum[j] = Math.min(255, v.n);
+    const o = outros.get(v.m) || [];
+    D.eAnt[j] = v.seq > 1 || o.some(a => a < v.e.am) ? 1 : 0;
+    D.ePost[j] = v.e.am < v.ult || o.some(a => a > v.e.am) ? 1 : 0;
     D.eQtd[j] = Math.min(255, v.e.qtd); D.eValor[j] = D.tValor[i]; D.eTipo[j] = D.tTipo[i]; D.eCid[j] = D.tCid[i]; D.eData.push(v.e.txt);
     Object.keys(D.extra).forEach(k => { D.extra[k][j] = D.tExtra[k][i]; });
   });
@@ -1601,9 +1698,10 @@ function marcaCortadas(){
 }
 
 /* ---------- unidades de análise e classificação ----------
-   Unidade: a matrícula, com o primeiro termo do ano (padrão), ou cada termo (evento). Com a matrícula, o primeiro termo
-   é acompanhado até o fim, mesmo que venha outro termo (definido pelo usuário, v2.6). Por evento, o período depois
-   termina no mês anterior ao termo seguinte da mesma matrícula, para não misturar o efeito de dois termos.
+   Contagem (botão Por cliente / Por termo, v3.0, definido pelo usuário): por cliente, a matrícula com o primeiro termo do
+   ano, acompanhado até o fim mesmo que venha outro termo; por termo, cada termo é uma unidade, o período antes de todos
+   eles é o do primeiro termo da matrícula e o depois de cada um vai até o fim (no máximo 12 meses), sem cortar no termo
+   seguinte. Na aba Reincidentes, a visão "cada termo como ponto de partida" usa o antes do próprio termo.
    Ligação cortada (v2.6): depois do termo, os meses sem conta que vêm depois da última conta contam como não pagos.
    Antes: os 12 meses anteriores ao mês do termo. Depois: do mês seguinte ao termo até o último mês completo (no máximo
    12 meses). O mês do termo fica fora dos dois períodos.
@@ -1638,23 +1736,35 @@ function derive(){
     ev.push(e);
   }
   const ctx = { nR, L, F, V, pago, corteF };
-  const O = classifica(ev.map(e => ({ m: D.eMat[e], am: D.eAm[e], prox: P.unidade === 'evento' ? D.eProx[e] : -1 })), ctx);
+  const O = classifica(ev.map(e => ({ m: D.eMat[e], am: D.eAm[e], amA: D.ePrim[e] })), ctx);
   Object.assign(D, O);
   D.U = Int32Array.from(ev); D.n = ev.length;
   // amostra de comparação (aba Comparação sem termo): cada matrícula sem termo recebe um mês de referência sorteado
   // pelo número da ligação entre os meses dos termos analisados, para ter a mesma distribuição de meses
   const nT = D.nTermo != null ? D.nTermo : D.mats.length, dist = ev.map(e => D.eAm[e]).sort((x, y) => x - y);
   const ctrl = [];
-  if (dist.length) for (let m = nT; m < D.mats.length; m++) ctrl.push({ m, am: dist[Math.floor(hashLig(D.mats[m]) / 100) % dist.length], prox: -1 });
+  if (dist.length) for (let m = nT; m < D.mats.length; m++){ const am = dist[Math.floor(hashLig(D.mats[m]) / 100) % dist.length]; ctrl.push({ m, am, amA: am }); }
   D.C = classifica(ctrl, ctx); D.C.n = ctrl.length;
+  // Reincidentes (aba própria, v3.0): matrículas com mais de um termo analisado, cada termo uma unidade, em duas visões:
+  // A, o antes do primeiro termo (como a contagem por termo); B, cada termo como ponto de partida (antes do próprio termo)
+  const nAn = new Map();
+  for (let e = 0; e < D.eMat.length; e++) if (D.eAm[e] < st.vig) nAn.set(D.eMat[e], (nAn.get(D.eMat[e]) || 0) + 1);
+  const rEv = [];
+  for (let e = 0; e < D.eMat.length; e++) if (D.eAm[e] < st.vig && nAn.get(D.eMat[e]) > 1) rEv.push(e);
+  D.R = {
+    n: rEv.length, ev: Int32Array.from(rEv),
+    A: classifica(rEv.map(e => ({ m: D.eMat[e], am: D.eAm[e], amA: D.ePrim[e] })), ctx),
+    B: classifica(rEv.map(e => ({ m: D.eMat[e], am: D.eAm[e], amA: D.eAm[e] })), ctx)
+  };
 }
 // FNV-1a do número da ligação: o mesmo sorteio do worker (amostra) e do mês de referência da comparação
 function hashLig(k){ let h = 0x811c9dc5; for (let i = 0; i < k.length; i++){ h ^= k.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; }
-// Classifica uma lista de unidades { m: matrícula, am: mês do termo, prox: mês do termo seguinte (-1 sem corte) } com as
-// regras do painel. Usada para os clientes com termo e para a amostra de comparação.
+// Classifica uma lista de unidades { m: matrícula, am: mês do termo, amA: mês que define o período antes } com as regras
+// do painel. Usada para os clientes com termo, a amostra de comparação e as duas visões dos reincidentes.
+// O período antes são os 12 meses anteriores a amA; o depois vai do mês seguinte a am até o fim (no máximo 12 meses).
 function classifica(lista, { nR, L, F, V, pago, corteF }){
   const n = lista.length, O = {};
-  O.uMat = new Int32Array(n); O.tI = new Int16Array(n); O.fimD = new Int16Array(n); O.corte = new Uint8Array(n);
+  O.uMat = new Int32Array(n); O.tI = new Int16Array(n); O.tA = new Int16Array(n); O.fimD = new Int16Array(n);
   O.nA = new Uint8Array(n); O.pA = new Uint8Array(n); O.nD = new Uint8Array(n); O.pD = new Uint8Array(n); O.semA = new Uint8Array(n);
   O.scA = new Uint8Array(n); O.scD = new Uint8Array(n);   // meses sem conta a pagar, antes e depois
   O.ncD = new Uint8Array(n);   // meses sem conta depois do corte da ligação, contados como não pagos
@@ -1662,21 +1772,20 @@ function classifica(lista, { nR, L, F, V, pago, corteF }){
   O.sA = new Float64Array(n); O.sD = new Float64Array(n); O.mA = new Float64Array(n); O.mD = new Float64Array(n);
   O.cA = new Int8Array(n); O.cD = new Int8Array(n); O.res = new Int8Array(n); O.motivo = new Int8Array(n); O.motivoA = new Int8Array(n);
   for (let u = 0; u < n; u++){
-    const { m, am, prox } = lista[u], b = m * nR, t = am - D.am0;
-    O.uMat[u] = m; O.tI[u] = t;
+    const { m, am, amA } = lista[u], b = m * nR, t = am - D.am0, tA = amA - D.am0;
+    O.uMat[u] = m; O.tI[u] = t; O.tA[u] = tA;
     let nA = 0, pA = 0, sA = 0, semA = 0, scA = 0, scD = 0, ncD = 0;
-    for (let r = t - 12; r < t; r++){
+    for (let r = tA - 12; r < tA; r++){
       if (r < 0 || r > L || D.semDados[r]){ semA++; continue; }
       const v = V[b + r];
       if (v > 0) sA += v;   // o valor arrecadado conta mesmo em mês sem conta (pagamento de atrasado)
       if (F && !(F[b + r] > 0)){ scA++; continue; }
       nA++; if (pago(b, r)) pA++;
     }
-    let fim = Math.min(L, t + 12);
-    if (prox >= 0){ const px = prox - D.am0 - 1; if (px < fim){ fim = px; O.corte[u] = 1; } }
+    const fim = Math.min(L, t + 12);
     O.fimD[u] = fim;
     let nD = 0, pD = 0, sD = 0, mesesA = 0, mesesD = 0;
-    for (let r = t - 12; r < t; r++) if (r >= 0 && r <= L && !D.semDados[r]) mesesA++;
+    for (let r = tA - 12; r < tA; r++) if (r >= 0 && r <= L && !D.semDados[r]) mesesA++;
     for (let r = Math.max(0, t + 1); r <= fim; r++){
       if (D.semDados[r]) continue;
       mesesD++;
@@ -1697,9 +1806,10 @@ function classifica(lista, { nR, L, F, V, pago, corteF }){
     O.cA[u] = cA; O.cD[u] = cD;
     O.res[u] = cA < 0 ? -1 : cD === 4 ? 3 : cD > cA ? 1 : cD < cA ? 2 : 0;
     // por que ficou com acompanhamento insuficiente: 1 termo recente (menos meses fechados que o mínimo depois do termo),
-    // 2 período encurtado por outro termo, 3 meses sem dados na base, 4 meses sem conta a pagar no faturamento
-    const potencial = Math.max(0, Math.min(L, t + 12) - t);
-    O.motivo[u] = cD !== 4 ? 0 : potencial < P.min ? 1 : O.corte[u] && fim - t < P.min ? 2 : mesesD < P.min ? 3 : 4;
+    // 3 meses sem dados na base, 4 meses sem conta a pagar no faturamento (o 2, período encurtado por outro termo, deixou
+    // de existir na v3.0: o depois não é mais cortado no termo seguinte)
+    const potencial = Math.max(0, fim - t);
+    O.motivo[u] = cD !== 4 ? 0 : potencial < P.min ? 1 : mesesD < P.min ? 3 : 4;
     // sem histórico antes: 1 nenhum mês com dados antes do termo, 2 nenhuma conta a pagar nos 12 meses antes
     O.motivoA[u] = cA >= 0 ? 0 : mesesA === 0 ? 1 : 2;
   }
@@ -1713,21 +1823,27 @@ const comparavel = u => D.res[u] >= 0 && D.res[u] <= 2;
 // Os principais (escolhidos pelo usuário) ficam à vista na faixa de filtros; todos ficam na gaveta "Todos os filtros".
 const PRINCIPAIS = ['mes', 'cA', 'cD', 'res', 'x_sitT', 'x_ise'];
 function defFiltros(){
-  const E = u => D.U[u], M = u => D.uMat[u], posMes = new Map(D.tMeses.map((a, i) => [a, i]));
+  const posMes = new Map(D.tMeses.map((a, i) => [a, i]));
+  // filtros pelo termo ou pela matrícula valem também na aba Reincidentes (getR); os de classificação não, porque a aba
+  // tem duas classificações para cada termo
+  const ev = f => ({ get: u => f(D.U[u]), getR: u => f(D.R.ev[u]) }), mat = f => ({ get: u => f(D.uMat[u]), getR: u => f(D.eMat[D.R.ev[u]]) });
   return [
-    { g: 'Termo', id: 'mes', nome: 'Mês do termo', lista: D.tMeses.map(amLabel), get: u => D.eMes[E(u)], getC: u => posMes.get(D.C.tI[u] + D.am0), ordem: true },
-    D.temCid ? { g: 'Termo', id: 'cid', nome: 'Município', lista: D.dict.cid, get: u => D.eCid[E(u)] } : null,
-    { g: 'Termo', id: 'tipo', nome: 'Tipo de irregularidade', lista: D.dict.tipo, get: u => D.eTipo[E(u)] },
-    ...D.extrasUsados.filter(x => ['sitT', 'fat', 'ise'].includes(x.k)).map(x => ({ g: 'Termo', id: 'x_' + x.k, nome: x.nome, lista: x.lista, get: u => D.extra[x.k][E(u)] })),
-    { g: 'Termo', id: 'reinc', nome: 'Reincidente', lista: ['Não', 'Sim'], get: u => D.eNum[E(u)] > 1 ? 1 : 0, ordem: true },
+    { g: 'Termo', id: 'mes', nome: 'Mês do termo', lista: D.tMeses.map(amLabel), ...ev(e => D.eMes[e]), getC: u => posMes.get(D.C.tI[u] + D.am0), ordem: true },
+    D.temCid ? { g: 'Termo', id: 'cid', nome: 'Município', lista: D.dict.cid, ...ev(e => D.eCid[e]) } : null,
+    { g: 'Termo', id: 'tipo', nome: 'Tipo de irregularidade', lista: D.dict.tipo, ...ev(e => D.eTipo[e]) },
+    ...D.extrasUsados.filter(x => ['sitT', 'fat', 'ise'].includes(x.k)).map(x => ({ g: 'Termo', id: 'x_' + x.k, nome: x.nome, lista: x.lista, ...ev(e => D.extra[x.k][e]) })),
+    // reincidência (v3.0): termo anterior inclui os de 2025 e os com Valor 0; a ordem conta só os termos analisados
+    { g: 'Reincidência', id: 'ant', nome: 'Tem termo anterior', lista: ['Não', 'Sim'], ...ev(e => D.eAnt[e]), ordem: true },
+    { g: 'Reincidência', id: 'post', nome: 'Tem termo posterior', lista: ['Não', 'Sim'], ...ev(e => D.ePost[e]), ordem: true },
+    P.unidade === 'evento' ? { g: 'Reincidência', id: 'ordem', nome: 'Ordem do termo', lista: ['1º', '2º', '3º ou mais'], ...ev(e => Math.min(2, D.eSeq[e] - 1)), ordem: true } : null,
     { g: 'Resultado', id: 'cA', nome: 'Antes', lista: ANTES, get: u => D.cA[u] < 0 ? 4 : D.cA[u], getC: u => D.C.cA[u] < 0 ? 4 : D.C.cA[u], ordem: true },
     { g: 'Resultado', id: 'cD', nome: 'Depois', lista: DEPOIS, get: u => D.cD[u], getC: u => D.C.cD[u], ordem: true },
     { g: 'Resultado', id: 'res', nome: 'Resultado', lista: RES, get: u => D.res[u] < 0 ? 4 : D.res[u], getC: u => D.C.res[u] < 0 ? 4 : D.C.res[u], ordem: true },
     { g: 'Resultado', id: 'meses', nome: 'Meses acompanhados', lista: Array.from({ length: 13 }, (_, i) => plural(i, 'mês', 'meses')), get: u => D.nD[u], getC: u => D.C.nD[u], ordem: true },
-    { g: 'Cadastro e ligação', id: 'zona', nome: 'Zona', lista: D.dict.zona, get: u => D.zona[M(u)], getC: u => D.zona[D.C.uMat[u]] },
-    { g: 'Cadastro e ligação', id: 'util', nome: 'Utilização', lista: D.dict.util, get: u => D.util[M(u)], getC: u => D.util[D.C.uMat[u]] },
-    D.fatUlt ? { g: 'Cadastro e ligação', id: 'cort', nome: 'Ligação cortada', lista: ['Não', 'Sim'], get: u => D.cortada[M(u)], getC: u => D.cortada[D.C.uMat[u]], ordem: true } : null,
-    ...D.extrasUsados.filter(x => !['sitT', 'fat', 'ise'].includes(x.k)).map(x => ({ g: 'Equipe e origem', id: 'x_' + x.k, nome: x.nome, lista: x.lista, get: u => D.extra[x.k][E(u)] }))
+    { g: 'Cadastro e ligação', id: 'zona', nome: 'Zona', lista: D.dict.zona, ...mat(m => D.zona[m]), getC: u => D.zona[D.C.uMat[u]] },
+    { g: 'Cadastro e ligação', id: 'util', nome: 'Utilização', lista: D.dict.util, ...mat(m => D.util[m]), getC: u => D.util[D.C.uMat[u]] },
+    D.fatUlt ? { g: 'Cadastro e ligação', id: 'cort', nome: 'Ligação cortada', lista: ['Não', 'Sim'], ...mat(m => D.cortada[m]), getC: u => D.cortada[D.C.uMat[u]], ordem: true } : null,
+    ...D.extrasUsados.filter(x => !['sitT', 'fat', 'ise'].includes(x.k)).map(x => ({ g: 'Equipe e origem', id: 'x_' + x.k, nome: x.nome, lista: x.lista, ...ev(e => D.extra[x.k][e]) }))
   ].filter(Boolean);
 }
 // texto do que está selecionado: "Todos", o nome (um ou dois) ou "3 de 9"
@@ -1967,7 +2083,8 @@ const liga = (sel, chave, fn) => document.querySelectorAll(`[${sel}]`).forEach(b
 
 /* ---------- parâmetros na tela ---------- */
 function montaParam(){
-  $('#pUnidade').value = P.unidade; $('#pModo').value = P.modo; $('#pMin').value = P.min;
+  $('#pModo').value = P.modo; $('#pMin').value = P.min;
+  document.querySelectorAll('[data-un]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.un === (P.unidade === 'evento' ? 'evento' : 'mat'))));
   // base de cálculo: com faturamento ou só arrecadação (lembra a última escolha, definido pelo usuário)
   document.querySelectorAll('[data-base]').forEach(b => {
     const on = (b.dataset.base === 'fat') === usaFat();
@@ -1994,7 +2111,13 @@ function montaParam(){
     .map(a => `<option value="${a}"${a === st.vig ? ' selected' : ''}>${amLabel(a)}${a === mesHoje() ? ' (atual)' : ''}</option>`).join('');
 }
 function mudaParam(){ salvaParam(); derive(); refresh(); }
-$('#pUnidade').onchange = e => { P.unidade = e.target.value; mudaParam(); };
+// contagem por cliente ou por termo (v3.0): o filtro Ordem do termo só existe por termo, então os filtros são montados de novo
+document.querySelectorAll('[data-un]').forEach(b => b.onclick = () => {
+  if (!D || P.unidade === b.dataset.un) return;
+  P.unidade = b.dataset.un; salvaParam(); montaParam();
+  if (P.unidade !== 'evento') delete st.sel.ordem;
+  derive(); montaFiltros(); refresh();
+});
 $('#pModo').onchange = e => { P.modo = e.target.value; mudaParam(); };
 document.querySelectorAll('[data-base]').forEach(b => b.onclick = () => { if (!D) return; P.fat = b.dataset.base === 'fat'; montaParam(); mudaParam(); });
 $('#pTol').onchange = e => { P.tol = +e.target.value; mudaParam(); };
@@ -2002,7 +2125,7 @@ $('#selVig').onchange = e => { st.vig = +e.target.value; derive(); refresh(); };
 $('#pMin').onchange = e => { P.min = Math.max(1, Math.min(12, Math.round(+e.target.value) || 3)); e.target.value = P.min; mudaParam(); };
 $('#pAdim').onchange = e => { P.adim = Math.max(1, Math.min(100, +String(e.target.value).replace(',', '.') || 83.3)); if (P.flut > P.adim) P.flut = P.adim; montaParam(); mudaParam(); };
 $('#pFlut').onchange = e => { P.flut = Math.max(1, Math.min(P.adim, +String(e.target.value).replace(',', '.') || 50)); montaParam(); mudaParam(); };
-$('#pPadrao').onclick = () => { const d = P.dataTermo; P = paramPadrao(); P.dataTermo = d; montaParam(); mudaParam(); };
+$('#pPadrao').onclick = () => { const d = P.dataTermo, un = P.unidade; P = paramPadrao(); P.dataTermo = d; P.unidade = un; montaParam(); mudaParam(); };
 $('#cortes').addEventListener('change', () => {
   const sl = D.dict.sitLig || [];
   P.corteVals = [...$('#cortes').querySelectorAll('input:checked')].map(c => sl[+c.value]);
@@ -2022,7 +2145,7 @@ function renderResumo(){
   const mats = new Set(); for (let u = 0; u < D.n; u++) if (k[u]) mats.add(D.uMat[u]);
   $('#kpis').innerHTML = [
     kpi(P.unidade === 'evento' ? 'Termos aplicados (eventos)' : 'Clientes com termo', nf0.format(tot),
-      (P.unidade === 'evento' ? `${nf0.format(mats.size)} matrículas` : 'matrículas únicas, primeiro termo do ano') + (g('semHist') ? ` · ${nf0.format(g('semHist'))} sem histórico` : ''), 'destaque'),
+      (P.unidade === 'evento' ? `em ${plural(mats.size, 'matrícula', 'matrículas')}` : 'matrículas únicas, primeiro termo do ano') + (g('semHist') ? ` · ${nf0.format(g('semHist'))} sem histórico` : ''), 'destaque'),
     kpi('Com acompanhamento suficiente', nf0.format(comp), `${pct(div(comp, tot))} do total · ${plural(P.min, 'mês', 'meses')} ou mais`),
     kpi('Melhoraram o perfil', nf0.format(g('melhorou')), `${pct(div(g('melhorou'), comp))} de ${nf0.format(comp)} comparáveis`, 'melhora'),
     kpi('Pioraram o perfil', nf0.format(g('piorou')), `${pct(div(g('piorou'), comp))} de ${nf0.format(comp)} comparáveis`, 'piora'),
@@ -2070,8 +2193,8 @@ function renderRegra(){
       ? `<b>Mês pago:</b> a conta que venceu no mês foi paga ${prazo}, pela data de crédito do pagamento daquela conta (mesmo vencimento na arrecadação), contando também os créditos de ${amLabel(st.vig)}. `
       : `<b>Mês pago:</b> soma do Valor Pago no mês maior que zero, pela ${{ cred: 'data de crédito', pag: 'data do pagamento', ref: 'referência da fatura (Mês/Ano)' }[P.modo]}. `) +
     `<b>Mês do termo:</b> Data de ${P.dataTermo === 'apl' ? 'aplicação' : 'negociação'} (sem ela, a outra data). ` +
-    (P.unidade === 'evento' ? '<b>Unidade:</b> cada termo aplicado; se a matrícula recebeu outro termo, o período depois termina no mês anterior a ele.'
-      : '<b>Unidade:</b> a matrícula, com o primeiro termo do ano, acompanhado até o fim mesmo que venha outro termo.') +
+    (P.unidade === 'evento' ? '<b>Contagem por termo:</b> cada termo aplicado é uma linha; o período antes de todos os termos do cliente é o dos 12 meses antes do primeiro termo, e o depois de cada termo vai até o fim, mesmo que venha outro termo.'
+      : '<b>Contagem por cliente:</b> a matrícula, com o primeiro termo do ano, acompanhado até o fim mesmo que venha outro termo.') +
     (usaFat() && D.fatUlt ? ' <b>Ligação cortada</b> (Situacao Ligacao da última conta): depois do termo, os meses sem conta após o corte contam como não pagos.' : '');
   const sd = []; for (let r = 0; r <= D.L; r++) if (D.semDados[r]) sd.push(amLabel(D.am0 + r));
   $('#limiteTxt').hidden = false;
@@ -2104,7 +2227,7 @@ function renderMatriz(k){
   });
   h += `<tr class="linha-total"><td>Total</td>${totC.map((c, d) => `<td>${cel(c, totG, -1, d)}</td>`).join('')}<td>${cel(totG, totG, -1, -1)}</td></tr></tbody></table>`;
   $('#tblMatriz').innerHTML = h;
-  renderSankey(M, linhas);
+  renderSankey(M, linhas, { el: '#sankey', leg: '#skLeg', nota: '#skNota', onde: 'na matriz acima', nome: [nomeUn().slice(0, -1), nomeUn()] });
   $('#matNota').textContent = `Linhas: classificação nos 12 meses antes do termo. Colunas: classificação depois. ` +
     (emPct ? 'Em % da linha, o denominador é o total da linha, incluindo quem ainda tem acompanhamento insuficiente.' : `Base: ${plural(totG, nomeUn().slice(0, -1), nomeUn())}.`);
   const o = agrega(k, () => 0, 1), g = x => o[x][0];
@@ -2134,13 +2257,16 @@ function motivosHtml(k){
   if (sh) h += `<span>Sem histórico antes (${nf0.format(sh)}): ${[1, 2].filter(i => qa[i]).map(i => `<b>${nf0.format(qa[i])}</b> ${MOTIVO_A[i]}`).join('; ')}</span>`;
   // ligações cortadas e reincidentes
   let cort = 0, cortN = 0, reinc = 0;
+  const reincM = new Set(D.R ? Array.from(D.R.ev, e => D.eMat[e]) : []);   // matrículas com mais de um termo analisado
   for (let u = 0; u < D.n; u++){
     if (!k[u]) continue;
     if (D.ncD[u]){ cort++; if (D.cD[u] === 3) cortN++; }
-    if (D.eNum[D.U[u]] > 1) reinc++;
+    if (reincM.has(D.uMat[u])) reinc++;
   }
   if (cort) h += `<span>Ligações cortadas depois do termo: <b>${nf0.format(cort)}</b> tiveram meses sem conta contados como não pagos; ${nf0.format(cortN)} ${cortN === 1 ? 'ficou' : 'ficaram'} em Nunca pagou</span>`;
-  if (reinc && P.unidade !== 'evento') h += `<span>Reincidentes: <b>${nf0.format(reinc)}</b> ${reinc === 1 ? 'matrícula recebeu' : 'matrículas receberam'} mais de um termo em 2026; a análise usa o primeiro termo e o acompanha até o fim</span>`;
+  if (reinc) h += P.unidade !== 'evento'
+    ? `<span>Reincidentes: <b>${nf0.format(reinc)}</b> ${reinc === 1 ? 'matrícula recebeu' : 'matrículas receberam'} mais de um termo analisado; nesta contagem vale o primeiro, acompanhado até o fim. Use a contagem Por termo ou a aba Reincidentes para ver os outros termos</span>`
+    : `<span>Reincidentes: <b>${nf0.format(reinc)}</b> ${reinc === 1 ? 'termo é' : 'termos são'} de matrículas com mais de um termo analisado; todos usam o antes do primeiro termo. A aba Reincidentes compara com cada termo como ponto de partida</span>`;
   return h;
 }
 
@@ -2153,14 +2279,14 @@ const SK_COR = ['#102840', '#176b9c', '#E8710A', '#9a3412', '#9AA6B2'];   // Adi
 const SK_FAIXA = ['#2E4C9A', '#1F7FB8', '#F08A2E', '#B4532A', '#9AA6B2'];
 // alvo: onde desenhar (el), legenda (leg), nota (nota) e texto de onde estão os insuficientes (onde)
 function renderSankey(M, linhas, alvo){
-  alvo = alvo || { el: '#sankey', leg: '#skLeg', nota: '#skNota', onde: 'na matriz acima' };
   // sem a coluna Acompanhamento insuficiente (pedido do usuário, v2.9): só as passagens entre as quatro classificações
   const el = $(alvo.el), W = 1000, ML = 190, MR = 190, NW = 12, GAP = 22, x0 = ML, x1 = W - MR;
   const dir = [0, 1, 2, 3], esq = linhas.filter(a => dir.some(d => M[a][d] > 0));
   const totE = esq.map(a => dir.reduce((x, d) => x + M[a][d], 0)), totD = dir.map(d => esq.reduce((x, a) => x + M[a][d], 0));
-  const N = totE.reduce((x, y) => x + y, 0), insuf = linhas.reduce((x, a) => x + M[a][4], 0);
-  $(alvo.nota).textContent = insuf ? `O fluxo mostra ${plural(N, 'cliente', 'clientes')} com acompanhamento suficiente. ${plural(insuf, 'cliente', 'clientes')} com acompanhamento insuficiente ${insuf === 1 ? 'fica' : 'ficam'} de fora (${alvo.onde}).` : `O fluxo mostra ${plural(N, 'cliente', 'clientes')} com acompanhamento suficiente.`;
-  if (!N){ el.innerHTML = '<p class="nota-secao">Sem clientes com acompanhamento suficiente com esses filtros.</p>'; if (alvo.leg) $(alvo.leg).innerHTML = ''; return; }
+  const N = totE.reduce((x, y) => x + y, 0), insuf = linhas.reduce((x, a) => x + M[a][4], 0), un = alvo.nome || ['cliente', 'clientes'];
+  el.nomeUn = un[1][0].toUpperCase() + un[1].slice(1);
+  $(alvo.nota).textContent = insuf ? `O fluxo mostra ${plural(N, un[0], un[1])} com acompanhamento suficiente. ${plural(insuf, un[0], un[1])} com acompanhamento insuficiente ${insuf === 1 ? 'fica' : 'ficam'} de fora (${alvo.onde}).` : `O fluxo mostra ${plural(N, un[0], un[1])} com acompanhamento suficiente.`;
+  if (!N){ el.innerHTML = `<p class="nota-secao">Sem ${un[1]} com acompanhamento suficiente com esses filtros.</p>`; if (alvo.leg) $(alvo.leg).innerHTML = ''; return; }
   const H = 360, esc = (H - GAP * (Math.max(esq.length, dir.length) - 1)) / N;
   const alt = v => Math.max(v ? 2 : 0, v * esc);
   // posição vertical dos blocos de cada lado
@@ -2200,9 +2326,10 @@ function ligaSankey(el, clicavel){
     el.querySelectorAll('.sk-faixa.on').forEach(x => x.classList.remove('on'));
     if (!p){ svg.classList.remove('foco'); dicaEl.hidden = true; return; }
     const f = el.faixas[+p.dataset.i]; svg.classList.add('foco'); p.classList.add('on');
+    // a trajetória dos reincidentes traz a dica pronta em cada faixa
     const res = f.a === 4 ? 'Sem histórico antes' : f.d === 4 ? 'Acompanhamento insuficiente' : f.d < f.a ? 'Melhorou' : f.d > f.a ? 'Piorou' : 'Permaneceu';
-    dicaEl.innerHTML = `<b class="mes">${esc(ANTES[f.a])} → ${esc(DEPOIS[f.d])}</b>` +
-      `<div class="lin forte"><span>Clientes</span><span>${nf0.format(f.v)}</span></div>` +
+    dicaEl.innerHTML = f.dica || `<b class="mes">${esc(ANTES[f.a])} → ${esc(DEPOIS[f.d])}</b>` +
+      `<div class="lin forte"><span>${el.nomeUn || 'Clientes'}</span><span>${nf0.format(f.v)}</span></div>` +
       `<div class="lin"><span>% de quem era ${esc(ANTES[f.a])}</span><span>${pct(f.v / el.totE.get(f.a))}</span></div>` +
       `<div class="lin mudo"><span>Resultado</span><span>${res}</span></div>`;
     dicaEl.hidden = false;
@@ -2223,6 +2350,7 @@ function ligaSankey(el, clicavel){
 ligaSankey($('#sankey'), true);
 ligaSankey($('#skCompT'), true);
 ligaSankey($('#skCompC'), false);
+ligaSankey($('#rcSkA'), false); ligaSankey($('#rcSkB'), false); ligaSankey($('#rcTraj'), false);
 
 // Gráfico A: os mesmos clientes em cada classificação antes e depois do termo (só quem tem histórico antes)
 // Mesma base da matriz: todos os clientes, inclusive os sem histórico antes (só existem antes) e os com acompanhamento
@@ -2406,24 +2534,46 @@ function renderGrupo(k){
 }
 
 // % que pagou em cada mês contado a partir do termo (−12 a −1 antes; +1 em diante depois; o mês do termo fica fora)
-function renderEvento(k){
-  const grupo = st.ev, nR = D.nR, V = D.V, F = usaFat() ? D.fat : null;
-  const entra = u => k[u] && D.cA[u] >= 0 && (grupo === 'todos' || (grupo === 'ad' ? D.cA[u] === 0 : D.cA[u] >= 2));
+// Série mês a mês em relação ao termo (v3.0), para os gráficos de pagamento e de ticket médio. Para cada deslocamento
+// (−12 a −1 antes, +1 em diante depois): quem estava no período (cli), quem tinha conta a pagar (obs; sem faturamento,
+// todos) e pagou (pag), quem teve valor arrecadado no mês (pagV) e o valor (val; valObs só nos meses com conta). Os meses
+// antes contam a partir do mês que define o período antes (tA: o do 1º termo na contagem por termo); os depois, a partir
+// do mês do termo, até o fim do período depois. O mês do termo fica fora.
+function offsRel(n, O, entra){
   let maxO = 1;
-  for (let u = 0; u < D.n; u++) if (entra(u)) maxO = Math.max(maxO, D.fimD[u] - D.tI[u]);
-  const offs = []; for (let o = -12; o <= maxO; o++) if (o) offs.push(o);
-  const obs = new Float64Array(offs.length), pag = new Float64Array(offs.length), val = new Float64Array(offs.length);
-  for (let u = 0; u < D.n; u++){
+  for (let u = 0; u < n; u++){
     if (!entra(u)) continue;
-    const t = D.tI[u], b = D.uMat[u] * nR;
+    let f = O.fimD[u]; while (f > O.tI[u] && D.semDados[f]) f--;   // meses sem dados no fim não viram coluna vazia
+    maxO = Math.max(maxO, f - O.tI[u]);
+  }
+  const offs = []; for (let o = -12; o <= maxO; o++) if (o) offs.push(o);
+  return offs;
+}
+function serieRel(n, O, entra, offs){
+  const nR = D.nR, V = D.V, F = usaFat() ? D.fat : null, z = () => new Float64Array(offs.length);
+  const s = { cli: z(), obs: z(), pag: z(), pagV: z(), val: z(), valObs: z() };
+  for (let u = 0; u < n; u++){
+    if (!entra(u)) continue;
+    const b = O.uMat[u] * nR;
     offs.forEach((o, i) => {
-      const r = t + o;
-      if (r < 0 || r > D.L || D.semDados[r] || (o > 0 && r > D.fimD[u]) || (F && !(F[b + r] > 0))) return;
-      obs[i]++; const v = V[b + r]; if (v > 0) val[i] += v; if (D.pago(b, r)) pag[i]++;
+      const r = (o < 0 ? O.tA[u] : O.tI[u]) + o;
+      if (r < 0 || r > D.L || D.semDados[r] || (o > 0 && r > O.fimD[u])) return;
+      const v = V[b + r];
+      s.cli[i]++; if (v > 0){ s.pagV[i]++; s.val[i] += v; }
+      if (F && !(F[b + r] > 0)) return;
+      s.obs[i]++; if (v > 0) s.valObs[i] += v; if (D.pago(b, r)) s.pag[i]++;
     });
   }
+  return s;
+}
+const rotRel = o => (o > 0 ? '+' : '−') + Math.abs(o);
+const titRel = o => `${plural(Math.abs(o), 'mês', 'meses')} ${o < 0 ? 'antes' : 'depois'} do termo`;
+function renderEvento(k){
+  const grupo = st.ev;
+  const entra = u => k[u] && D.cA[u] >= 0 && (grupo === 'todos' || (grupo === 'ad' ? D.cA[u] === 0 : D.cA[u] >= 2));
+  const offs = offsRel(D.n, D, entra), S = serieRel(D.n, D, entra, offs), obs = S.obs, pag = S.pag, val = S.valObs;
   const taxa = offs.map((_, i) => obs[i] ? pag[i] / obs[i] * 100 : 0);
-  const labels = offs.map(o => (o > 0 ? '+' : '−') + Math.abs(o));
+  const labels = offs.map(rotRel);
   const el = $('#blocoEv');
   el.innerHTML = graficoAlinhado(labels, [
     { values: taxa.map((v, i) => offs[i] < 0 ? v : 0), cor: COR.antes, corTexto: '#fff' },
@@ -2434,14 +2584,15 @@ function renderEvento(k){
     { nome: 'Pagaram', vals: [...pag], fmt: v => nf0.format(v) },
     { nome: '% que pagou', vals: offs.map((_, i) => div(pag[i], obs[i])), fmt: v => nf0.format(v * 100) + '%', cls: 'forte' }
   ]);
-  el.dica = { n: offs.length, titulo: i => `${plural(Math.abs(offs[i]), 'mês', 'meses')} ${offs[i] < 0 ? 'antes' : 'depois'} do termo`, linhas: i => [
+  el.dica = { n: offs.length, titulo: i => titRel(offs[i]), linhas: i => [
     { nome: nomeUn(0, true) + ' no mês', valor: nf0.format(obs[i]) },
     { nome: 'Pagaram', valor: nf0.format(pag[i]) },
     { nome: '% que pagou', valor: obs[i] ? nf1.format(pag[i] / obs[i] * 100) + '%' : '–', cls: 'forte' },
     { nome: 'Valor pago', valor: brl0.format(val[i]) }
   ] };
   $('#evNota').textContent = 'Percentual que pagou em cada mês contado a partir do termo (a linha tracejada marca o mês do termo, que fica fora)' +
-    (F ? ', entre quem tinha conta a pagar no mês' : '') + '. Depois do termo, cada mês só inclui quem já chegou nele: os meses mais distantes têm só os termos mais antigos.';
+    (usaFat() ? ', entre quem tinha conta a pagar no mês' : '') + '. Depois do termo, cada mês só inclui quem já chegou nele: os meses mais distantes têm só os termos mais antigos.' +
+    (P.unidade === 'evento' ? ' Na contagem por termo, os meses antes são os 12 meses antes do primeiro termo do cliente, como na classificação.' : '');
 }
 
 /* ---------- Ticket médio de arrecadação (v2.11) ----------
@@ -2453,10 +2604,8 @@ function ticketDados(grupos){
   const nR = D.nR, V = D.V, L = D.L, rel = st.tk !== 'cal';
   let cols, labels, marca = null, depois = null, mesUnico = null, nMeses = 0;
   if (rel){
-    let maxO = 1;
-    grupos.forEach(({ n, O, k }) => { for (let u = 0; u < n; u++) if (k[u]) maxO = Math.max(maxO, O.fimD[u] - O.tI[u]); });
-    cols = []; for (let o = -12; o <= maxO; o++) if (o) cols.push(o);
-    labels = cols.map(o => (o > 0 ? '+' : '−') + Math.abs(o));
+    cols = grupos.map(({ n, O, k }) => offsRel(n, O, u => k[u])).reduce((a, b) => a.length >= b.length ? a : b);
+    labels = cols.map(rotRel);
     marca = 12; depois = 12;
   } else {
     cols = Array.from({ length: L + 1 }, (_, r) => r);
@@ -2468,23 +2617,17 @@ function ticketDados(grupos){
   }
   const nC = cols.length;
   const res = grupos.map(({ n, O, k }) => {
-    const cli = new Float64Array(nC), pag = new Float64Array(nC), val = new Float64Array(nC), vistos = new Set();
-    for (let u = 0; u < n; u++){
+    let cli = new Float64Array(nC), pag = new Float64Array(nC), val = new Float64Array(nC);
+    const vistos = new Set();
+    if (rel){ const S = serieRel(n, O, u => k[u], cols); cli = S.cli; pag = S.pagV; val = S.val; }
+    else for (let u = 0; u < n; u++){
       if (!k[u]) continue;
-      const m = O.uMat[u], b = m * nR, t = O.tI[u];
-      if (rel){
-        cols.forEach((o, i) => {
-          const r = t + o;
-          if (r < 0 || r > L || D.semDados[r] || (o > 0 && r > O.fimD[u])) return;
-          cli[i]++; const v = V[b + r]; if (v > 0){ pag[i]++; val[i] += v; }
-        });
-      } else {
-        // no calendário, cada matrícula entra uma vez por mês (por evento, a mesma matrícula pode ter mais de um termo)
-        if (vistos.has(m)) continue; vistos.add(m);
-        for (let r = 0; r <= L; r++){
-          if (D.semDados[r]) continue;
-          cli[r]++; const v = V[b + r]; if (v > 0){ pag[r]++; val[r] += v; }
-        }
+      // no calendário, cada matrícula entra uma vez por mês (por termo, a mesma matrícula pode ter mais de um termo)
+      const m = O.uMat[u], b = m * nR;
+      if (vistos.has(m)) continue; vistos.add(m);
+      for (let r = 0; r <= L; r++){
+        if (D.semDados[r]) continue;
+        cli[r]++; const v = V[b + r]; if (v > 0){ pag[r]++; val[r] += v; }
       }
     }
     const tk = Array.from(val, (v, i) => pag[i] ? v / pag[i] : null);
@@ -2546,7 +2689,8 @@ function textoTk(T, nome){
 }
 function notaEixo(d){
   const base = `Ticket médio = valor arrecadado no mês (pela ${{ cred: 'data de crédito', pag: 'data do pagamento', ref: 'referência da fatura' }[P.modo]}) ÷ clientes que pagaram no mês. `;
-  if (d.rel) return base + 'Eixo relativo ao termo: cada cliente fica alinhado pelo mês do próprio termo (linha tracejada; o mês do termo fica fora). Depois do termo, cada mês só inclui quem já chegou nele, por isso os clientes que pagaram caem nos meses mais distantes: compare com a linha tracejada da base (clientes no mês).';
+  if (d.rel) return base + 'Eixo relativo ao termo: cada cliente fica alinhado pelo mês do próprio termo (linha tracejada; o mês do termo fica fora). Depois do termo, cada mês só inclui quem já chegou nele, por isso os clientes que pagaram caem nos meses mais distantes: compare com a linha tracejada da base (clientes no mês).' +
+    (P.unidade === 'evento' ? ' Na contagem por termo, os meses antes são os 12 meses antes do primeiro termo do cliente.' : '');
   return base + 'Eixo do calendário: todos os clientes filtrados em todos os meses. ' + (d.marca != null ? `A linha tracejada marca o mês do termo (${amLabel(D.am0 + d.mesUnico)}).` :
     d.nMeses > 1 ? `Os termos estão em ${d.nMeses} meses diferentes, então não há um único antes e depois: filtre um só Mês do termo para marcar o termo no gráfico.` : '');
 }
@@ -2564,7 +2708,7 @@ function renderTicket(k){
     { nome: 'Valor arrecadado', vals: [...T.val].map((v, i) => isNaN(T.cli[i]) ? null : v), fmt: compacto },
     { nome: 'Ticket médio (R$)', vals: T.tk, fmt: fmtTkTab, cls: 'forte' }
   ]);
-  el.dica = { n: d.cols.length, titulo: i => d.rel ? `${plural(Math.abs(d.cols[i]), 'mês', 'meses')} ${d.cols[i] < 0 ? 'antes' : 'depois'} do termo` : d.labels[i], linhas: i => isNaN(T.cli[i]) ? [{ nome: 'Mês sem dados na base', valor: '' }] : [
+  el.dica = { n: d.cols.length, titulo: i => d.rel ? titRel(d.cols[i]) : d.labels[i], linhas: i => isNaN(T.cli[i]) ? [{ nome: 'Mês sem dados na base', valor: '' }] : [
     { nome: nomeUn(0, true) + ' no mês', valor: nf0.format(T.cli[i]) },
     { nome: 'Pagaram', valor: nf0.format(T.pag[i]), cor: '#102840' },
     { nome: 'Valor arrecadado', valor: brl0.format(T.val[i]) },
@@ -2586,7 +2730,7 @@ function renderTicketComp(kT, kC){
     { nome: 'Pagaram com termo', vals: num(T.pag), fmt: v => nf0.format(v), cls: 'mudo' },
     { nome: 'Pagaram sem termo', vals: num(C.pag), fmt: v => nf0.format(v), cls: 'mudo' }
   ]);
-  el.dica = { n: d.cols.length, titulo: i => d.rel ? `${plural(Math.abs(d.cols[i]), 'mês', 'meses')} ${d.cols[i] < 0 ? 'antes' : 'depois'} do termo` : d.labels[i], linhas: i => isNaN(T.cli[i]) ? [{ nome: 'Mês sem dados na base', valor: '' }] : [
+  el.dica = { n: d.cols.length, titulo: i => d.rel ? titRel(d.cols[i]) : d.labels[i], linhas: i => isNaN(T.cli[i]) ? [{ nome: 'Mês sem dados na base', valor: '' }] : [
     { nome: 'Ticket com termo', valor: T.tk[i] == null ? '–' : brl2.format(T.tk[i]), cor: '#176b9c', cls: 'forte' },
     { nome: 'Ticket sem termo', valor: C.tk[i] == null ? '–' : brl2.format(C.tk[i]), cor: '#9AA6B2' },
     'sep',
@@ -2602,7 +2746,7 @@ function renderRodape(){
   const s = D.stats, t = s.termos, nE = D.eMat.length, nM = D.nTermo != null ? D.nTermo : D.mats.length;
   let semArr = 0; for (let m = 0; m < nM; m++) if (!D.temArr[m]) semArr++;
   let multi = 0; for (let e = 0; e < nE; e++) if (D.eSeq[e] === 2) multi++;
-  let corte = 0, incompleto = 0; for (let u = 0; u < D.n; u++){ if (D.corte[u]) corte++; if (D.cA[u] >= 0 && D.nA[u] < 12) incompleto++; }
+  let incompleto = 0; for (let u = 0; u < D.n; u++) if (D.cA[u] >= 0 && D.nA[u] < 12) incompleto++;
   const partes = [];
   partes.push(`Base: ${/arquivos$/.test(D.meta.fonte) ? '' : esc(D.meta.fonte) + ', '}${plural(D.meta.arquivos.length, 'arquivo', 'arquivos')}. Arrecadação de ${amLabel(D.am0)} a ${amLabel(D.am0 + D.nR - 1)}${D.ultData ? ' (último pagamento em ' + D.ultData + ')' : ''}: ${nf0.format(s.linhas)} pagamentos lidos, ${nf0.format(s.linhasTermo)} de matrículas com termo.`);
   // leitura nova: contado no worker; base guardada por versão anterior: pelos meses que ficaram fora do recorte
@@ -2615,6 +2759,9 @@ function renderRodape(){
     (multi ? `; ${plural(multi, 'matrícula tem', 'matrículas têm')} mais de um termo no ano` : '') +
     ((t.foraAno || 0) + D.evStats.foraAno ? `; ${plural((t.foraAno || 0) + D.evStats.foraAno, 'termo', 'termos')} de outros anos fora da análise` : '') + (t.semData ? `; ${plural(t.semData, 'linha', 'linhas')} sem data` : '') +
     (t.valorZero ? `; ${plural(t.valorZero, 'termo', 'termos')} de 2026 com Valor zero (isentos ou cancelados) fora da análise` : '') + '.' +
+    // termos de 2025 e com Valor 0 marcam reincidência (v3.0); a base guardada por versão anterior não tem esses termos
+    (!D.oMat ? ' Os termos de 2025 e com Valor 0 não estão na base guardada: clique em ↻ Atualizar para que contem como termo anterior ou posterior.' :
+      D.evStats.outros[1] + D.evStats.outros[2] ? ` Marcam reincidência (termo anterior ou posterior), sem entrar na análise: ${[[1, 'de 2025'], [2, 'com Valor zero']].filter(([i]) => D.evStats.outros[i]).map(([i, n]) => plural(D.evStats.outros[i], 'termo ' + n, 'termos ' + n)).join(' e ')}.` : '') +
     ` O mês do termo vem da Data de ${P.dataTermo === 'apl' ? 'aplicação' : 'negociação'}` + (D.evStats.outraData ? `; ${plural(D.evStats.outraData, 'termo sem', 'termos sem')} essa data ${D.evStats.outraData === 1 ? 'usou' : 'usaram'} a Data de ${P.dataTermo === 'apl' ? 'negociação' : 'aplicação'}.` : '.'));
   const f = D.stats.fat;
   if (f && f.linhas){
@@ -2633,7 +2780,6 @@ function renderRodape(){
       (f.rub && f.rub.length ? `; rubricas: ${f.rub.map(([r, n]) => esc(r || '(vazio)') + ' ' + nf0.format(n)).join(', ')}` : '') + '.');
   }
   if (s.semCred) partes.push(`${plural(s.semCred, 'pagamento sem', 'pagamentos sem')} Data Crédito ${s.semCred === 1 ? 'usou' : 'usaram'} a Data Pagto.`);
-  if (corte) partes.push(`${plural(corte, 'período depois foi encurtado', 'períodos depois foram encurtados')} por causa de um termo seguinte na mesma matrícula.`);
   if (incompleto) partes.push(`${plural(incompleto, nomeUn().slice(0, -1) + ' tem', nomeUn() + ' têm')} menos de 12 meses com dados antes do termo (classificação proporcional).`);
   if (semArr) partes.push(`${plural(semArr, 'matrícula com termo não tem', 'matrículas com termo não têm')} nenhum pagamento na base${usaFat() ? '' : ' e contam como Nunca pagou'}. Confira se a Matrícula é o mesmo número do Nº Ligação.`);
   if (s.sit.length > 1) partes.push('Situação Pagto: ' + s.sit.slice(0, 8).map(([k, v]) => `${esc(k || '(vazio)')} ${nf0.format(v)}`).join(', ') + '.');
@@ -2646,12 +2792,13 @@ function renderRodape(){
    sorteado entre os meses dos termos analisados. Mesmas regras de classificação. Nesta aba só valem os filtros que
    existem para os dois grupos (mês, antes, depois, resultado, meses acompanhados, zona, utilização e ligação cortada). */
 function resumoGrupo(n, O, k){
-  const o = { tot: 0, comp: 0, mel: 0, pio: 0, igu: 0, insuf: 0, semHist: 0, adimA: 0, adimPio: 0, adimInad: 0, naoPag: 0, recup: 0, mA: 0, mD: 0,
+  const o = { tot: 0, comp: 0, mel: 0, pio: 0, igu: 0, insuf: 0, insufTot: 0, semHist: 0, adimA: 0, adimPio: 0, adimInad: 0, naoPag: 0, recup: 0, mA: 0, mD: 0,
     base: new Float64Array(4), pioPor: new Float64Array(4), melPor: new Float64Array(4), insufPor: new Float64Array(4), M: Array.from({ length: 4 }, () => new Float64Array(4)) };
   for (let u = 0; u < n; u++){
     if (!k[u]) continue;
     o.tot++;
     const r = O.res[u], a = O.cA[u], d = O.cD[u];
+    if (d === 4) o.insufTot++;   // insuficiente com e sem histórico antes, como no Resumo
     if (r < 0){ o.semHist++; continue; }
     if (r === 3){ o.insuf++; o.insufPor[a]++; continue; }
     o.comp++; o.base[a]++; o.M[a][d]++; o.mA += O.mA[u]; o.mD += O.mD[u];
@@ -2661,6 +2808,37 @@ function resumoGrupo(n, O, k){
   }
   return o;
 }
+// pontos percentuais com sinal
+const ppTxt = v => v == null ? '–' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + nf1.format(Math.abs(v) * 100) + ' p.p.';
+// Indicadores de dois grupos (resumoGrupo) lado a lado, com a diferença do primeiro para o segundo. Usada na comparação
+// sem termo e nas duas visões dos reincidentes.
+function tabelaIndicadores(T, C, cab, nomeTot, extra){
+  const p = (a, b) => b ? a / b : null, dif = (a, b) => a == null || b == null ? null : a - b, pp = ppTxt;
+  const linhas = [
+    { nome: nomeTot, t: T.tot, c: C.tot, f: v => nf0.format(v) },
+    ...(extra || []),
+    { nome: 'Com acompanhamento suficiente (comparáveis)', t: T.comp, c: C.comp, f: v => nf0.format(v) },
+    { nome: 'Melhoraram', t: p(T.mel, T.comp), c: p(C.mel, C.comp), f: pct, d: pp, bom: 1 },
+    { nome: 'Pioraram', t: p(T.pio, T.comp), c: p(C.pio, C.comp), f: pct, d: pp, bom: -1 },
+    { nome: 'Permaneceram', t: p(T.igu, T.comp), c: p(C.igu, C.comp), f: pct, d: pp },
+    { nome: 'Adimplentes que pioraram', t: p(T.adimPio, T.adimA), c: p(C.adimPio, C.adimA), f: pct, d: pp, bom: -1 },
+    { nome: 'Adimplentes que foram para Inadimplente ou Nunca pagou', t: p(T.adimInad, T.adimA), c: p(C.adimInad, C.adimA), f: pct, d: pp, bom: -1 },
+    { nome: 'Recuperados (Inadimplente ou Nunca pagou que passaram a Adimplente ou Flutuante)', t: p(T.recup, T.naoPag), c: p(C.recup, C.naoPag), f: pct, d: pp, bom: 1 },
+    { nome: 'Média mensal por cliente antes', t: p(T.mA, T.comp), c: p(C.mA, C.comp), f: v => brl2.format(v) },
+    { nome: 'Média mensal por cliente depois', t: p(T.mD, T.comp), c: p(C.mD, C.comp), f: v => brl2.format(v) },
+    { nome: 'Variação da média mensal', t: T.mA ? T.mD / T.mA - 1 : null, c: C.mA ? C.mD / C.mA - 1 : null, f: pctSig, d: pp, bom: 1 }
+  ];
+  return `<table class="tab-seg tab-comp"><thead><tr><th>Indicador</th><th>${cab[0]}</th><th>${cab[1]}</th><th>Diferença</th></tr></thead><tbody>` +
+    linhas.map(l => {
+      const d = l.d ? dif(l.t, l.c) : null, cls = d == null || !l.bom || Math.abs(d) < 0.0005 ? '' : (d * l.bom > 0 ? 'melhor' : 'pior');
+      return `<tr><td>${l.nome}</td><td>${l.t == null ? '–' : l.f(l.t)}</td><td>${l.c == null ? '–' : l.f(l.c)}</td><td class="dif ${cls}">${l.d ? l.d(d) : ''}</td></tr>`;
+    }).join('') + '</tbody></table>';
+}
+// matriz antes × depois em % da linha (só comparáveis)
+const matrizPct = (o, nomeTot) => '<table class="matriz"><thead><tr><th class="canto">Antes → depois</th>' + FAIXAS.map(f => `<th>${f}</th>`).join('') + `<th>${nomeTot}</th></tr></thead><tbody>` +
+  [0, 1, 2, 3].map(a => `<tr><td>${FAIXAS[a]}</td>` + [0, 1, 2, 3].map(d => `<td class="${d < a ? 'melhor' : d > a ? 'pior' : 'igual'}">${o.base[a] ? pct(o.M[a][d] / o.base[a]) : '–'}</td>`).join('') + `<td class="tot">${nf0.format(o.base[a])}</td></tr>`).join('') + '</tbody></table>';
+// matriz de resumoGrupo com a coluna dos insuficientes, no formato do fluxo
+const M5 = o => [0, 1, 2, 3].map(a => Float64Array.from([...o.M[a], o.insufPor[a]])).concat([new Float64Array(5)]);
 function renderComp(){
   const nC = D.C ? D.C.n : 0;
   const fs = D.filtros.filter(f => f.getC && st.sel[f.id]), ignorados = D.filtros.filter(f => !f.getC && st.sel[f.id]);
@@ -2674,26 +2852,7 @@ function renderComp(){
   const av = $('#compAviso');
   av.hidden = C.comp >= 200;
   av.innerHTML = nC ? `<b>Atenção:</b> a amostra sem termo tem só ${plural(C.comp, 'cliente comparável', 'clientes comparáveis')} com esses filtros; os percentuais podem variar bastante.` : '<b>Atenção:</b> a base guardada não tem amostra de clientes sem termo. Clique em ↻ Atualizar para ler os arquivos de novo.';
-  const p = (a, b) => b ? a / b : null, dif = (a, b) => a == null || b == null ? null : a - b;
-  const pp = v => v == null ? '–' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + nf1.format(Math.abs(v) * 100) + ' p.p.';
-  const linhas = [
-    { nome: 'Clientes', t: T.tot, c: C.tot, f: v => nf0.format(v) },
-    { nome: 'Com acompanhamento suficiente (comparáveis)', t: T.comp, c: C.comp, f: v => nf0.format(v) },
-    { nome: 'Melhoraram', t: p(T.mel, T.comp), c: p(C.mel, C.comp), f: pct, d: pp, bom: 1 },
-    { nome: 'Pioraram', t: p(T.pio, T.comp), c: p(C.pio, C.comp), f: pct, d: pp, bom: -1 },
-    { nome: 'Permaneceram', t: p(T.igu, T.comp), c: p(C.igu, C.comp), f: pct, d: pp },
-    { nome: 'Adimplentes que pioraram', t: p(T.adimPio, T.adimA), c: p(C.adimPio, C.adimA), f: pct, d: pp, bom: -1 },
-    { nome: 'Adimplentes que foram para Inadimplente ou Nunca pagou', t: p(T.adimInad, T.adimA), c: p(C.adimInad, C.adimA), f: pct, d: pp, bom: -1 },
-    { nome: 'Recuperados (Inadimplente ou Nunca pagou que passaram a Adimplente ou Flutuante)', t: p(T.recup, T.naoPag), c: p(C.recup, C.naoPag), f: pct, d: pp, bom: 1 },
-    { nome: 'Média mensal por cliente antes', t: p(T.mA, T.comp), c: p(C.mA, C.comp), f: v => brl2.format(v) },
-    { nome: 'Média mensal por cliente depois', t: p(T.mD, T.comp), c: p(C.mD, C.comp), f: v => brl2.format(v) },
-    { nome: 'Variação da média mensal', t: T.mA ? T.mD / T.mA - 1 : null, c: C.mA ? C.mD / C.mA - 1 : null, f: pctSig, d: pp, bom: 1 }
-  ];
-  $('#tblComp').innerHTML = '<table class="tab-seg tab-comp"><thead><tr><th>Indicador</th><th>Com termo</th><th>Sem termo</th><th>Diferença</th></tr></thead><tbody>' +
-    linhas.map(l => {
-      const d = l.d ? dif(l.t, l.c) : null, cls = d == null || !l.bom || Math.abs(d) < 0.0005 ? '' : (d * l.bom > 0 ? 'melhor' : 'pior');
-      return `<tr><td>${l.nome}</td><td>${l.t == null ? '–' : l.f(l.t)}</td><td>${l.c == null ? '–' : l.f(l.c)}</td><td class="dif ${cls}">${l.d ? l.d(d) : ''}</td></tr>`;
-    }).join('') + '</tbody></table>';
+  $('#tblComp').innerHTML = tabelaIndicadores(T, C, ['Com termo', 'Sem termo'], 'Clientes');
   const corC = '#9AA6B2', fmtP = v => nf1.format(v) + '%';
   const graf = (id, cats, num, aria) => {
     const vt = cats.map(i => T.base[i] ? T[num][i] / T.base[i] * 100 : null), vc = cats.map(i => C.base[i] ? C[num][i] / C.base[i] * 100 : null);
@@ -2702,7 +2861,7 @@ function renderComp(){
       tabelaAlinhada(labels, [
         { nome: 'Com termo', vals: cats.map(i => T.base[i] || null), fmt: v => plural(v, 'cliente', 'clientes'), cor: COR.antes, cls: 'mudo' },
         { nome: 'Sem termo', vals: cats.map(i => C.base[i] || null), fmt: v => plural(v, 'cliente', 'clientes'), cor: corC, cls: 'mudo' },
-        { nome: 'Diferença', vals: cats.map((_, j) => vt[j] == null || vc[j] == null ? null : (vt[j] - vc[j]) / 100), fmt: pp, cls: 'forte' }
+        { nome: 'Diferença', vals: cats.map((_, j) => vt[j] == null || vc[j] == null ? null : (vt[j] - vc[j]) / 100), fmt: ppTxt, cls: 'forte' }
       ]);
     el.dica = { n: cats.length, titulo: j => FAIXAS[cats[j]] + ' antes', linhas: j => [
       { nome: 'Com termo', valor: vt[j] == null ? '–' : `${fmtP(vt[j])} de ${nf0.format(T.base[cats[j]])}`, cor: COR.antes },
@@ -2711,13 +2870,200 @@ function renderComp(){
   };
   graf('#blocoCompP', [0, 1, 2], 'pioPor', 'Percentual que piorou, com e sem termo');
   graf('#blocoCompM', [1, 2, 3], 'melPor', 'Percentual que melhorou, com e sem termo');
-  const matriz = (o) => '<table class="matriz"><thead><tr><th class="canto">Antes → depois</th>' + FAIXAS.map(f => `<th>${f}</th>`).join('') + '<th>Clientes</th></tr></thead><tbody>' +
-    [0, 1, 2, 3].map(a => `<tr><td>${FAIXAS[a]}</td>` + [0, 1, 2, 3].map(d => `<td class="${d < a ? 'melhor' : d > a ? 'pior' : 'igual'}">${o.base[a] ? pct(o.M[a][d] / o.base[a]) : '–'}</td>`).join('') + `<td class="tot">${nf0.format(o.base[a])}</td></tr>`).join('') + '</tbody></table>';
-  $('#matCompT').innerHTML = matriz(T); $('#matCompC').innerHTML = matriz(C);
-  const M5 = o => [0, 1, 2, 3].map(a => Float64Array.from([...o.M[a], o.insufPor[a]])).concat([new Float64Array(5)]);
+  $('#matCompT').innerHTML = matrizPct(T, 'Clientes'); $('#matCompC').innerHTML = matrizPct(C, 'Clientes');
   renderSankey(M5(T), [0, 1, 2, 3], { el: '#skCompT', leg: '#skCompLeg', nota: '#skCompTNota', onde: 'veja os indicadores acima' });
   renderSankey(M5(C), [0, 1, 2, 3], { el: '#skCompC', leg: null, nota: '#skCompCNota', onde: 'veja os indicadores acima' });
   renderTicketComp(kT, kC);
+}
+
+/* ---------- Reincidentes (v3.0, pedido do usuário) ----------
+   Só as matrículas com mais de um termo analisado; cada termo é uma unidade, em duas visões:
+   A, "Antes do 1º termo": o período antes de todos os termos é o do primeiro termo (como a contagem por termo);
+   B, "Cada termo como ponto de partida": o período antes é o dos 12 meses antes do próprio termo.
+   O depois é o mesmo nas duas (do mês seguinte ao termo até o fim, no máximo 12 meses). Valem os filtros pelo termo e pela
+   matrícula; os de classificação (Antes, Depois, Resultado, Meses) não, porque cada termo tem duas classificações. */
+const COR_B = '#E8710A';
+function keepMaskR(){
+  const fs = D.filtros.filter(f => f.getR && st.sel[f.id]), k = new Uint8Array(D.R.n);
+  for (let u = 0; u < D.R.n; u++) k[u] = fs.every(f => st.sel[f.id].has(f.getR(u))) ? 1 : 0;
+  return k;
+}
+function renderReinc(){
+  const R = D.R, k = keepMaskR(), ignorados = D.filtros.filter(f => !f.getR && st.sel[f.id]);
+  const A = resumoGrupo(R.n, R.A, k), B = resumoGrupo(R.n, R.B, k);
+  const mats = new Set(), porN = new Map();
+  for (let u = 0; u < R.n; u++) if (k[u]) mats.add(D.eMat[R.ev[u]]);
+  for (const m of mats) porN.set(m, 0);
+  for (let u = 0; u < R.n; u++) if (k[u]) porN.set(D.eMat[R.ev[u]], porN.get(D.eMat[R.ev[u]]) + 1);
+  const tres = [...porN.values()].filter(v => v >= 3).length;
+  $('#rcNota').innerHTML = `<b>${plural(mats.size, 'cliente', 'clientes')}</b> com mais de um termo analisado (2026, Valor maior que zero, antes do mês vigente), com <b>${plural(A.tot, 'termo', 'termos')}</b>` +
+    (tres ? ` (${plural(tres, 'cliente tem', 'clientes têm')} 3 termos ou mais)` : '') + '. Cada termo é analisado em duas visões: ' +
+    '<b>Antes do 1º termo</b>, em que o período antes de todos os termos do cliente é o dos 12 meses antes do primeiro termo (como na contagem Por termo); e ' +
+    '<b>Cada termo como ponto de partida</b>, em que o período antes é o dos 12 meses antes do próprio termo, já com o efeito dos termos anteriores. ' +
+    'O depois de cada termo é o mesmo nas duas visões (até 12 meses, mesmo que venha outro termo). Na primeira visão, o 2º termo mostra a situação do cliente comparada com antes de tudo; na segunda, se o 2º termo piorou ainda mais quem já tinha recebido o 1º.' +
+    (ignorados.length ? ` <b>Filtros ignorados nesta aba</b> (cada termo tem duas classificações): ${ignorados.map(f => esc(f.nome)).join(', ')}.` : '');
+  const av = $('#rcAviso');
+  av.hidden = A.comp >= 30;
+  av.innerHTML = !R.n ? '<b>Atenção:</b> nenhum cliente recebeu mais de um termo analisado.' : `<b>Atenção:</b> só ${plural(A.comp, 'termo comparável', 'termos comparáveis')} com esses filtros; os percentuais podem variar bastante.`;
+  $('#tblRc').innerHTML = tabelaIndicadores(A, B, ['Antes do 1º termo', 'Cada termo como ponto de partida'], 'Termos analisados', [
+    { nome: 'Sem histórico antes', t: A.semHist, c: B.semHist, f: v => nf0.format(v) },
+    { nome: 'Acompanhamento insuficiente', t: A.insufTot, c: B.insufTot, f: v => nf0.format(v) }
+  ]);
+  $('#rcMatA').innerHTML = matrizPct(A, 'Termos'); $('#rcMatB').innerHTML = matrizPct(B, 'Termos');
+  renderSankey(M5(A), [0, 1, 2, 3], { el: '#rcSkA', leg: '#rcSkLeg', nota: '#rcSkANota', onde: 'veja os indicadores acima', nome: ['termo', 'termos'] });
+  renderSankey(M5(B), [0, 1, 2, 3], { el: '#rcSkB', leg: null, nota: '#rcSkBNota', onde: 'veja os indicadores acima', nome: ['termo', 'termos'] });
+  renderOrdem(k);
+  renderTraj(k);
+  renderRcMes(k);
+}
+// resultado por ordem do termo (1º, 2º, 3º ou mais), em % dos comparáveis, nas duas visões
+function renderOrdem(k){
+  const R = D.R, ORD = ['1º termo', '2º termo', '3º ou mais'];
+  [['#rcOrdA', R.A], ['#rcOrdB', R.B]].forEach(([id, O]) => {
+    const c = Array.from({ length: 3 }, () => ({ tot: 0, comp: 0, r: [0, 0, 0] }));   // r: permaneceu, piorou, melhorou
+    for (let u = 0; u < R.n; u++){
+      if (!k[u]) continue;
+      const g = c[Math.min(2, D.eSeq[R.ev[u]] - 1)], r = O.res[u];
+      g.tot++; if (r >= 0 && r <= 2){ g.comp++; g.r[r]++; }
+    }
+    const idx = [0, 1, 2].filter(i => c[i].tot), labels = idx.map(i => ORD[i]), pc = (i, r) => c[i].comp ? c[i].r[r] / c[i].comp * 100 : 0;
+    const el = $(id);
+    el.innerHTML = graficoAlinhado(labels, [
+      { values: idx.map(i => pc(i, 2)), cor: COR.melhora, corTexto: '#fff' },
+      { values: idx.map(i => pc(i, 0)), cor: COR.permanece, corTexto: '#102840' },
+      { values: idx.map(i => pc(i, 1)), cor: COR.piora, corTexto: '#fff' }
+    ], { aria: 'Resultado por ordem do termo', min: 100, h: 220, eixo: v => nf0.format(v) + '%', fmt: () => '', fmtIn: v => nf0.format(v) + '%' }) +
+    tabelaAlinhada(labels, [
+      { nome: 'Termos', vals: idx.map(i => c[i].tot), fmt: v => nf0.format(v), cls: 'mudo' },
+      { nome: 'Comparáveis', vals: idx.map(i => c[i].comp), fmt: v => nf0.format(v) },
+      { nome: 'Melhoraram', vals: idx.map(i => c[i].comp ? pc(i, 2) / 100 : null), fmt: pct, cor: COR.melhora },
+      { nome: 'Permaneceram', vals: idx.map(i => c[i].comp ? pc(i, 0) / 100 : null), fmt: pct, cor: COR.permanece },
+      { nome: 'Pioraram', vals: idx.map(i => c[i].comp ? pc(i, 1) / 100 : null), fmt: pct, cor: COR.piora, cls: 'forte' }
+    ]);
+    el.dica = { n: idx.length, titulo: j => labels[j], linhas: j => [
+      { nome: 'Termos', valor: nf0.format(c[idx[j]].tot) },
+      { nome: 'Comparáveis', valor: nf0.format(c[idx[j]].comp) }, 'sep',
+      ...[[2, 'Melhoraram', COR.melhora], [0, 'Permaneceram', COR.permanece], [1, 'Pioraram', COR.piora]].map(([r, nome, cor]) =>
+        ({ nome, valor: c[idx[j]].comp ? `${nf0.format(c[idx[j]].r[r])} · ${nf1.format(pc(idx[j], r))}%` : '–', cor }))
+    ] };
+  });
+}
+// Trajetória de cada reincidente: classificação antes do 1º termo → depois do 1º termo → depois do 2º termo (quem tem 3
+// termos ou mais aparece pelos dois primeiros). Entra o cliente com o 1º ou o 2º termo dentro dos filtros. Quem tem
+// acompanhamento insuficiente depois de um dos dois termos fica fora, como no fluxo do Resumo.
+function renderTraj(k){
+  const R = D.R, T = new Map(), quer = new Set();
+  let fora = 0, n = 0;
+  for (let u = 0; u < R.n; u++) if (k[u] && D.eSeq[R.ev[u]] <= 2) quer.add(D.eMat[R.ev[u]]);
+  for (let u = 0; u + 1 < R.n; u++){
+    const e = R.ev[u];
+    if (D.eSeq[e] !== 1 || !quer.has(D.eMat[e])) continue;
+    const a = R.A.cA[u] < 0 ? 4 : R.A.cA[u], b = R.A.cD[u], c = R.A.cD[u + 1];
+    if (b === 4 || c === 4){ fora++; continue; }
+    n++; const ch = a * 100 + b * 10 + c; T.set(ch, (T.get(ch) || 0) + 1);
+  }
+  $('#rcTrajNota').textContent = `${plural(n, 'cliente', 'clientes')} com acompanhamento suficiente depois do 1º e do 2º termo` +
+    (fora ? `; ${plural(fora, 'cliente', 'clientes')} com acompanhamento insuficiente depois de um deles ${fora === 1 ? 'fica' : 'ficam'} de fora` : '') +
+    '. O depois do 1º termo vai até 12 meses, mesmo que o 2º venha antes. Passe o mouse nas faixas para ver os números.';
+  const el = $('#rcTraj');
+  if (!n){ el.innerHTML = '<p class="nota-secao">Sem clientes com acompanhamento suficiente depois dos dois termos com esses filtros.</p>'; $('#rcTrajLeg').innerHTML = ''; return; }
+  // três colunas de blocos: 0 antes do 1º (com Sem histórico), 1 depois do 1º, 2 depois do 2º
+  const tot = [new Float64Array(5), new Float64Array(5), new Float64Array(5)], L1 = new Map(), L2 = new Map();
+  for (const [ch, v] of T){
+    const a = Math.floor(ch / 100), b = Math.floor(ch / 10) % 10, c = ch % 10;
+    tot[0][a] += v; tot[1][b] += v; tot[2][c] += v;
+    L1.set(a * 10 + b, (L1.get(a * 10 + b) || 0) + v); L2.set(b * 10 + c, (L2.get(b * 10 + c) || 0) + v);
+  }
+  const W = 1000, ML = 170, MR = 170, NW = 12, GAP = 22, H = 360;
+  const xs = [ML, (W - NW) / 2, W - MR];
+  const nos = tot.map(t => [0, 1, 2, 3, 4].filter(i => t[i] > 0));
+  const esc = (H - GAP * (Math.max(...nos.map(l => l.length)) - 1)) / n, alt = v => Math.max(v ? 2 : 0, v * esc);
+  const y = nos.map((l, c) => { let p = 0; const o = {}; l.forEach(i => { o[i] = p; p += alt(tot[c][i]) + GAP; }); return o; });
+  const hT = Math.max(...nos.map((l, c) => y[c][l[l.length - 1]] + alt(tot[c][l[l.length - 1]])));
+  const NOME = [ANTES, FAIXAS, FAIXAS], ETAPA = ['antes do 1º termo', 'depois do 1º termo', 'depois do 2º termo'];
+  const corRes = (a, d) => a === 4 ? COR.insuf : d < a ? COR.melhora : d > a ? COR.piora : COR.permanece;
+  const faixas = [], offS = [{}, {}, {}], offE = [{}, {}, {}];
+  [L1, L2].forEach((Lk, c) => {
+    // saem na ordem do destino e chegam na ordem da origem, para não se cruzarem à toa
+    [...Lk.entries()].sort((p, q) => (Math.floor(p[0] / 10) - Math.floor(q[0] / 10)) || (p[0] % 10 - q[0] % 10)).forEach(([ch, v]) => {
+      const a = Math.floor(ch / 10), d = ch % 10, h = alt(v);
+      const ya = y[c][a] + (offS[c][a] || 0), yb = y[c + 1][d] + (offE[c + 1][d] || 0);
+      offS[c][a] = (offS[c][a] || 0) + h; offE[c + 1][d] = (offE[c + 1][d] || 0) + h;
+      const x0 = xs[c] + NW, x1 = xs[c + 1], xm = (x0 + x1) / 2;
+      faixas.push({ a, d, v, cor: st.sk === 'res' ? corRes(a, d) : SK_FAIXA[a],
+        path: `M${x0},${ya} C${xm},${ya} ${xm},${yb} ${x1},${yb} L${x1},${yb + h} C${xm},${yb + h} ${xm},${ya + h} ${x0},${ya + h} Z`,
+        dica: `<b class="mes">${esc2(NOME[c][a])} ${ETAPA[c]} → ${esc2(FAIXAS[d])} ${ETAPA[c + 1]}</b>` +
+          `<div class="lin forte"><span>Clientes</span><span>${nf0.format(v)}</span></div>` +
+          `<div class="lin"><span>% de quem era ${esc2(NOME[c][a])}</span><span>${pct(v / tot[c][a])}</span></div>` +
+          `<div class="lin mudo"><span>Resultado</span><span>${a === 4 ? 'Sem histórico antes' : d < a ? 'Melhorou' : d > a ? 'Piorou' : 'Permaneceu'}</span></div>` });
+    });
+  });
+  let g = faixas.map((f, i) => `<path class="sk-faixa" data-i="${i}" d="${f.path}" fill="${f.cor}" fill-opacity=".36" stroke="#fff" stroke-width=".8"/>`).join('');
+  const rot = (x, yy, h, ancora, nome, v, meio) => {
+    const halo = meio ? ' paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round"' : '';
+    return `<text x="${x}" y="${yy + h / 2 - 2}" text-anchor="${ancora}" font-size="13" font-weight="600" fill="#102840" font-family="${FONTE_SVG}"${halo}>${esc2(nome)}</text>` +
+      `<text x="${x}" y="${yy + h / 2 + 13}" text-anchor="${ancora}" font-size="12" fill="#64748b" font-family="${FONTE_SVG}"${halo}>${nf0.format(v)} · ${pct(v / n)}</text>`;
+  };
+  nos.forEach((l, c) => l.forEach(i => {
+    const yy = y[c][i], h = alt(tot[c][i]);
+    g += `<rect x="${xs[c]}" y="${yy}" width="${NW}" height="${h}" fill="${SK_COR[i]}" rx="2"/>`;
+    g += c === 0 ? rot(xs[c] - 10, yy, h, 'end', NOME[c][i], tot[c][i]) : c === 2 ? rot(xs[c] + NW + 10, yy, h, 'start', NOME[c][i], tot[c][i]) : rot(xs[c] + NW + 8, yy, h, 'start', NOME[c][i], tot[c][i], true);
+  }));
+  ['ANTES DO 1º TERMO', 'DEPOIS DO 1º TERMO', 'DEPOIS DO 2º TERMO'].forEach((t, c) =>
+    g += `<text x="${c === 0 ? xs[0] : c === 2 ? xs[2] + NW : xs[1] + NW / 2}" y="-10" text-anchor="${c === 0 ? 'start' : c === 2 ? 'end' : 'middle'}" font-size="11.5" font-weight="700" fill="#64748b" font-family="${FONTE_SVG}" letter-spacing=".06em">${t}</text>`);
+  el.innerHTML = `<svg viewBox="0 -28 ${W} ${hT + 36}" role="img" aria-label="Trajetória dos reincidentes: antes do 1º termo, depois do 1º e depois do 2º">${g}</svg>`;
+  el.faixas = faixas;
+  $('#rcTrajLeg').innerHTML = st.sk === 'res'
+    ? [['Melhorou', COR.melhora], ['Permaneceu', COR.permanece], ['Piorou', COR.piora]].concat(nos[0].includes(4) ? [['Sem histórico antes', COR.insuf]] : []).map(([nm, c]) => `<span><i style="background:${c}"></i>${nm}</span>`).join('')
+    : [0, 1, 2, 3, 4].filter(i => nos[0].includes(i) || nos[1].includes(i)).map(i => `<span><i style="background:${SK_COR[i]}"></i>Saiu de ${ANTES[i]}</span>`).join('');
+}
+// pagamento mês a mês e ticket médio nas duas visões (eixo relativo ao termo). Os meses depois são os mesmos nas duas
+// visões, por isso a segunda linha só aparece antes do termo.
+function renderRcMes(k){
+  const R = D.R, entra = u => k[u], offs = offsRel(R.n, R.A, entra), labels = offs.map(rotRel);
+  const SA = serieRel(R.n, R.A, entra, offs), SB = serieRel(R.n, R.B, entra, offs);
+  const antes = (a, i) => offs[i] < 0 ? a : null;
+  const taxa = S => offs.map((_, i) => S.obs[i] ? S.pag[i] / S.obs[i] * 100 : null);
+  const tA = taxa(SA), tB = taxa(SB).map(antes), fP = v => nf0.format(v) + '%';
+  const el = $('#rcEv');
+  el.innerHTML = graficoLinhas(labels, [
+    { titulo: '% que pagou', h: 220, zero: true, eixo: v => nf0.format(v) + '%', series: [{ values: tA, cor: '#102840', fmt: fP }, { values: tB, cor: COR_B, fmt: fP }] }
+  ], { aria: 'Percentual que pagou mês a mês, nas duas visões', marca: 12, depois: 12 }) +
+  tabelaAlinhada(labels, [
+    { nome: '% antes do 1º termo', vals: tA.map(v => v == null ? null : v / 100), fmt: v => nf0.format(v * 100) + '%', cor: '#102840', cls: 'forte' },
+    { nome: '% ponto de partida', vals: tB.map(v => v == null ? null : v / 100), fmt: v => nf0.format(v * 100) + '%', cor: COR_B },
+    { nome: 'Termos no mês', vals: [...SA.obs], fmt: v => nf0.format(v), cls: 'mudo' },
+    { nome: 'Termos no mês (ponto de partida)', vals: [...SB.obs].map(antes), fmt: v => nf0.format(v), cls: 'mudo' }
+  ]);
+  el.dica = { n: offs.length, titulo: i => titRel(offs[i]), linhas: i => [
+    { nome: 'Antes do 1º termo', valor: tA[i] == null ? '–' : `${nf1.format(tA[i])}% (${nf0.format(SA.pag[i])} de ${nf0.format(SA.obs[i])})`, cor: '#102840' },
+    ...(offs[i] < 0 ? [{ nome: 'Ponto de partida', valor: tB[i] == null ? '–' : `${nf1.format(tB[i])}% (${nf0.format(SB.pag[i])} de ${nf0.format(SB.obs[i])})`, cor: COR_B }] : [])
+  ] };
+  $('#rcEvNota').textContent = 'Percentual que pagou em cada mês, contado a partir do termo' + (usaFat() ? ', entre quem tinha conta a pagar no mês' : '') +
+    '. Antes do termo, a linha azul-marinho usa os 12 meses antes do 1º termo do cliente; a laranja, os 12 meses antes do próprio termo. Depois do termo as duas visões são iguais (uma linha só). Entram todos os termos dos reincidentes, inclusive os sem histórico antes.';
+  const tk = S => offs.map((_, i) => S.pagV[i] ? S.val[i] / S.pagV[i] : null);
+  const kA = tk(SA), kB = tk(SB).map(antes), fT = v => nf0.format(v);
+  const el2 = $('#rcTk');
+  el2.innerHTML = graficoLinhas(labels, [
+    { titulo: 'Ticket médio (R$)', h: 180, eixo: v => nf0.format(v), series: [{ values: kA, cor: '#102840', fmt: fT }, { values: kB, cor: COR_B, fmt: fT }] },
+    { titulo: 'Clientes que pagaram', h: 150, zero: true, eixo: compacto, series: [{ values: [...SA.pagV], cor: '#102840', fmt: compacto }, { values: [...SB.pagV].map(antes), cor: COR_B, fmt: compacto }] }
+  ], { aria: 'Ticket médio e clientes que pagaram, nas duas visões', marca: 12, depois: 12 }) +
+  tabelaAlinhada(labels, [
+    { nome: 'Ticket antes do 1º termo', vals: kA, fmt: v => nf2.format(v), cor: '#102840', cls: 'forte' },
+    { nome: 'Ticket ponto de partida', vals: kB, fmt: v => nf2.format(v), cor: COR_B },
+    { nome: 'Pagaram (antes do 1º termo)', vals: [...SA.pagV], fmt: v => nf0.format(v), cls: 'mudo' },
+    { nome: 'Pagaram (ponto de partida)', vals: [...SB.pagV].map(antes), fmt: v => nf0.format(v), cls: 'mudo' }
+  ]);
+  el2.dica = { n: offs.length, titulo: i => titRel(offs[i]), linhas: i => [
+    { nome: 'Ticket antes do 1º termo', valor: kA[i] == null ? '–' : brl2.format(kA[i]), cor: '#102840', cls: 'forte' },
+    { nome: 'Pagaram', valor: `${nf0.format(SA.pagV[i])} de ${nf0.format(SA.cli[i])}` },
+    ...(offs[i] < 0 ? ['sep', { nome: 'Ticket ponto de partida', valor: kB[i] == null ? '–' : brl2.format(kB[i]), cor: COR_B, cls: 'forte' },
+      { nome: 'Pagaram', valor: `${nf0.format(SB.pagV[i])} de ${nf0.format(SB.cli[i])}` }] : [])
+  ] };
+  const per = (S, de, ate) => { let v = 0, p = 0; offs.forEach((o, i) => { if (o >= de && o <= ate){ v += S.val[i]; p += S.pagV[i]; } }); return p ? v / p : null; };
+  const aA = per(SA, -12, -1), aB = per(SB, -12, -1), dd = per(SA, 1, 12);
+  $('#rcTkNota').textContent = 'Ticket médio = valor arrecadado no mês ÷ clientes que pagaram no mês, com os mesmos períodos do gráfico acima.' +
+    (aA != null && dd != null ? ` Nos 12 meses: ${brl2.format(aA)} antes do 1º termo, ${aB == null ? '–' : brl2.format(aB)} antes do próprio termo e ${brl2.format(dd)} depois do termo (${pctSig(dd / aA - 1)} e ${aB ? pctSig(dd / aB - 1) : '–'}).` : '');
 }
 
 /* ---------- Clientes (tabela detalhada) ---------- */
@@ -2738,6 +3084,8 @@ function colunas(){
     ...xs.map(x => ({ t: x.nome, h: norm(x.nome), v: u => x.lista[D.extra[x.k][D.U[u]]], txt: 1 })),
     { t: 'Data do termo', h: 'DATA_TERMO', v: u => D.eData[D.U[u]] },
     { t: 'Termo', h: 'TERMO_NA_MATRICULA', v: u => `${D.eSeq[D.U[u]]} de ${D.eNum[D.U[u]]}` },
+    { t: 'Termo anterior', h: 'TEM_TERMO_ANTERIOR', v: u => D.eAnt[D.U[u]] ? 'SIM' : 'NÃO', txt: 1 },
+    { t: 'Termo posterior', h: 'TEM_TERMO_POSTERIOR', v: u => D.ePost[D.U[u]] ? 'SIM' : 'NÃO', txt: 1 },
     { t: 'Antes', h: 'CLASSIFICACAO_ANTES', v: u => faixaA(D.cA[u]), cls: u => 'f' + (D.cA[u] < 0 ? 4 : D.cA[u]), txt: 1 },
     { t: 'Meses observados antes', h: 'MESES_OBSERVADOS_ANTES', v: u => D.nA[u] },
     { t: 'Meses pagos antes', h: 'MESES_PAGOS_ANTES', v: u => D.pA[u] },
@@ -2777,9 +3125,9 @@ function consList(){
 }
 // período de cada mês para a unidade: 1 = antes, 2 = depois, 3 = mês do termo, 0 = fora
 function janela(u, r){
-  const t = D.tI[u];
+  const t = D.tI[u], tA = D.tA[u];   // na contagem por termo, o antes é o do 1º termo do cliente
   if (r === t) return 3;
-  if (r >= t - 12 && r < t && r <= D.L) return 1;
+  if (r >= tA - 12 && r < tA && r <= D.L) return 1;
   if (r > t && r <= D.fimD[u]) return 2;
   return 0;
 }
@@ -2851,10 +3199,10 @@ async function exportCsv(){
 function showTab(t){
   st.tab = t;
   document.querySelectorAll('[data-tab]').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
-  $('#view-resumo').hidden = t !== 'resumo'; $('#view-cons').hidden = t !== 'cons'; $('#view-comp').hidden = t !== 'comp';
-  if (t === 'resumo') renderResumo(); else if (t === 'comp') renderComp(); else renderCons(true);
+  $('#view-resumo').hidden = t !== 'resumo'; $('#view-cons').hidden = t !== 'cons'; $('#view-comp').hidden = t !== 'comp'; $('#view-reinc').hidden = t !== 'reinc';
+  if (t === 'resumo') renderResumo(); else if (t === 'comp') renderComp(); else if (t === 'reinc') renderReinc(); else renderCons(true);
 }
-function refresh(){ if (!D) return; st.list = null; if (st.tab === 'resumo') renderResumo(); else if (st.tab === 'comp') renderComp(); else renderCons(true); }
+function refresh(){ if (!D) return; st.list = null; if (st.tab === 'resumo') renderResumo(); else if (st.tab === 'comp') renderComp(); else if (st.tab === 'reinc') renderReinc(); else renderCons(true); }
 
 let pasta = null;
 const temPicker = 'showDirectoryPicker' in window;
@@ -2916,7 +3264,7 @@ liga('data-mat', 'mat', () => renderMatriz(keepMask()));
 document.querySelectorAll('[data-sk]').forEach(b => b.onclick = () => {
   st.sk = b.dataset.sk;
   document.querySelectorAll('[data-sk]').forEach(x => { const on = x.dataset.sk === st.sk; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); });
-  if (st.tab === 'comp') renderComp(); else renderMatriz(keepMask());
+  if (st.tab === 'comp') renderComp(); else if (st.tab === 'reinc') renderReinc(); else renderMatriz(keepMask());
 });
 liga('data-a', 'a', () => renderA(keepMask()));
 liga('data-grupo', 'grupo', () => renderGrupo(keepMask()));
@@ -2937,7 +3285,7 @@ $('#tblMatriz').addEventListener('click', e => {
   $('#cSearch').value = '';
   montaFiltros(); showTab('cons');
 });
-ligaDica($('#blocoA')); ligaDica($('#blocoB')); ligaDica($('#blocoD')); ligaDica($('#blocoEv')); ligaDica($('#blocoCompP')); ligaDica($('#blocoCompM')); ligaDica($('#blocoTk')); ligaDica($('#blocoTkC'));
+ligaDica($('#blocoA')); ligaDica($('#blocoB')); ligaDica($('#blocoD')); ligaDica($('#blocoEv')); ligaDica($('#blocoCompP')); ligaDica($('#blocoCompM')); ligaDica($('#blocoTk')); ligaDica($('#blocoTkC')); ligaDica($('#rcOrdA')); ligaDica($('#rcOrdB')); ligaDica($('#rcEv')); ligaDica($('#rcTk'));
 let tSearch; $('#cSearch').oninput = () => { clearTimeout(tSearch); tSearch = setTimeout(() => renderCons(true), 250); };
 $('#cSort').onchange = () => renderCons(true);
 $('#pPrev').onclick = () => { st.page--; renderCons(false); $('#tblCons').scrollTop = 0; };
