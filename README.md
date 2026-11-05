@@ -16,6 +16,7 @@ Painel em HTML que cruza a base de termos aplicados em 2026 com a base de arreca
    **Filtros**: os principais ficam à vista; o botão **Todos os filtros** abre uma gaveta com todos, agrupados. Os filtros ativos aparecem como etiquetas; o ✕ tira o filtro.
    No cartão **Perfil antes × depois**, abaixo da matriz, o **fluxo antes → depois** mostra em faixas para onde foram os clientes de cada classificação.
    O cartão **Ticket médio de arrecadação** mostra, mês a mês, o valor arrecadado dividido pelos clientes que pagaram e a quantidade de clientes que pagaram, com o botão **Relativo ao termo** (cada cliente alinhado pelo mês do próprio termo) ou **Calendário** (meses reais; a linha do termo aparece quando há um só mês do termo filtrado).
+   O painel abre no **Resumo executivo**, que responde se o termo faz o cliente deixar de ser adimplente: semáforo da piora líquida (com termo menos sem termo), frases com os números e o gráfico de onde o cliente partiu e para onde foi. A análise completa fica na aba **Análise detalhada**.
    A aba **Reincidentes** mostra só os clientes com mais de um termo, em duas visões (antes do 1º termo e cada termo como ponto de partida), com a trajetória antes do 1º termo → depois do 1º → depois do 2º.
    A aba **Comparação sem termo** compara os clientes com termo com uma amostra de clientes sem termo (5% da base), com as mesmas regras, para separar o efeito do termo da inadimplência normal.
 6. **Mês vigente** (ao lado das abas): abre no mês atual. Os termos desse mês ficam fora, a análise vai até o mês anterior, e os pagamentos do mês vigente só contam como pagamento com atraso de contas dos meses anteriores.
@@ -51,7 +52,7 @@ Sem a pasta Faturamento, todos os meses são observados, e um mês sem pagamento
 
 ## Versão anterior
 
-As versões anteriores (1.1 e 2.0 a 2.11) continuam disponíveis em `versoes/` e nos branches `versao-1.1` e `versao-2.0` a `versao-2.11`.
+As versões anteriores (1.1, 2.0 a 2.11 e 3.0) continuam disponíveis em `versoes/` e nos branches `versao-1.1` e `versao-2.0` a `versao-2.11` e `versao-3.0`.
 
 ## Privacidade
 

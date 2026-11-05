@@ -282,7 +282,7 @@ c, M = soma(un_termo)
 # amostra de comparação: mês de referência sorteado entre os meses das unidades com termo
 dist = sorted(t for _, t, _ in un_termo)
 un_ctrl = [(k, dist[(hash_lig(k) // 100) % len(dist)], dist[(hash_lig(k) // 100) % len(dist)]) for k in sorted(amostra)]
-cc, _ = soma(un_ctrl)
+cc, MC = soma(un_ctrl)
 
 rot = lambda a: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][a % 12] + '/' + str(a // 12)[2:]
 sem = [rot(m) for m in range(min_am, ult + 1) if not ok(m)]
@@ -369,3 +369,15 @@ for k, ts in sorted(reinc.items()):
     ch = (4 if ca < 0 else ca, cd1, cd2)
     traj[ch] = traj.get(ch, 0) + 1
 print(f'Trajetória: {sum(traj.values())} clientes, {fora} fora; mais comuns:', ', '.join(f'{FAIXAS[a][:5] if a < 4 else "SemH"}>{FAIXAS[b][:5]}>{FAIXAS[c][:5]}:{v}' for (a, b, c), v in sorted(traj.items(), key=lambda x: -x[1])[:4]))
+
+
+# Resumo executivo (v3.1): destino dos adimplentes antes do termo e piora líquida (com termo − sem termo)
+def adim(Mx):
+    linha = Mx[0][:4]
+    n = sum(linha)
+    return n, linha, (n - linha[0]) / n if n else None, (linha[2] + linha[3]) / n if n else None
+
+
+nT, lT, pT, gT = adim(M)
+nCa, lC, pC, gC = adim(MC)
+print(f'Executivo: adimplentes com termo {nT} {lT} piora {pT:.4f} grave {gT:.4f} | sem termo {nCa} {lC} piora {pC:.4f} grave {gC:.4f} | piora líquida {(pT - pC) * 100:+.2f} p.p.')

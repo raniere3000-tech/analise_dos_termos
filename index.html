@@ -330,6 +330,26 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
 .regra b{color:var(--marinho)}
 .limite{font-size:12px;color:var(--permanece-texto);background:var(--permanece-tint);border-radius:6px;padding:6px 10px;margin:8px 0 0;line-height:1.45}
 
+/* ===== Resumo executivo (v3.1) ===== */
+.exec-pergunta{margin:0 0 10px;font-size:19px;font-weight:600;color:var(--marinho)}
+.exec-veredito{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-radius:10px;background:var(--tint);border-left:6px solid var(--farol,#9AA6B2)}
+.exec-veredito .farol{display:flex;gap:6px;flex:0 0 auto}
+.exec-veredito .farol i{width:22px;height:22px;border-radius:50%;background:#dfe6ee;display:block}
+.exec-veredito .farol i.on{background:var(--farol);box-shadow:0 0 0 3px rgba(16,40,64,.08)}
+.exec-veredito .num{font-size:30px;font-weight:700;color:var(--farol-texto,var(--marinho));line-height:1;flex:0 0 auto}
+.exec-veredito .num small{display:block;font-size:11px;font-weight:500;color:var(--azul-claro);margin-top:4px}
+.exec-veredito .txt{flex:1 1 320px;min-width:0;font-size:14px;line-height:1.5;color:var(--marinho)}
+.exec-veredito .txt b{font-size:15px}
+.exec-frases{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:10px}
+.exec-frases li{font-size:14px;line-height:1.55;color:#1f3448;padding:10px 12px;border-radius:8px;background:#f7f9fb;border-left:3px solid var(--marinho)}
+.exec-frases li.alerta{border-left-color:var(--laranja);background:var(--laranja-tint)}
+.exec-frases li.bom{border-left-color:var(--melhora)}
+.exec-frases li.mudo{border-left-color:#c9d6e2;color:#5b6774;font-size:13px}
+.exec-frases b{color:var(--marinho);font-size:15px}
+.exec-frases .barra100{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:8px 0 2px;max-width:560px}
+.exec-frases .barra100 span{display:block;height:100%}
+.exec-frases .leg100{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#5b6774}
+.exec-frases .leg100 i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:0}
 /* ===== Classes e resultado no Consolidado ===== */
 .f0{color:var(--c-adim);font-weight:600}
 .f1{color:var(--c-flut);font-weight:600}
@@ -363,7 +383,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
     <div class="header-linha">
       <span class="header-badge">Águas do Rio · Arrecadação</span>
       <h1>Termos aplicados em 2026 e adimplência</h1>
-      <span class="versao" id="versao" title="Versão do painel">v3.0</span>
+      <span class="versao" id="versao" title="Versão do painel">v3.1</span>
       <p class="status" id="status">Nenhuma base carregada</p>
     </div>
     <div class="acoes">
@@ -385,7 +405,8 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
 <!-- abas: barra própria, separada da configuração e dos filtros (pedido do usuário, v2.7) -->
 <nav class="abas" id="toolbar" hidden aria-label="Abas do painel">
   <div class="abas-in">
-    <button type="button" class="aba active" data-tab="resumo" aria-pressed="true">Resumo</button>
+    <button type="button" class="aba active" data-tab="exec" aria-pressed="true">Resumo executivo</button>
+    <button type="button" class="aba" data-tab="resumo" aria-pressed="false">Análise detalhada</button>
     <button type="button" class="aba" data-tab="cons" aria-pressed="false">Clientes</button>
     <button type="button" class="aba" data-tab="comp" aria-pressed="false">Comparação sem termo</button>
     <button type="button" class="aba" data-tab="reinc" aria-pressed="false">Reincidentes</button>
@@ -431,7 +452,7 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
 <div class="gaveta-fundo" id="gavFundo" hidden></div>
 <aside class="gaveta" id="gaveta" hidden aria-label="Todos os filtros">
   <div class="gav-topo"><h2>Filtros</h2><button type="button" class="gav-fechar" id="gavFechar" aria-label="Fechar">✕</button></div>
-  <p class="nota-secao">Marque o que quer ver. As mudanças valem na hora para o Resumo e para a aba Clientes.</p>
+  <p class="nota-secao">Marque o que quer ver. As mudanças valem na hora para todas as abas (na Comparação sem termo e na aba Reincidentes, só os filtros que existem lá).</p>
   <div id="gavCorpo"></div>
   <div class="gav-rodape"><button type="button" class="btn-just" id="gavLimpar">Limpar todos</button><button type="button" class="gav-ok" id="gavOk">Ver resultado</button></div>
 </aside>
@@ -446,6 +467,28 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
       <li>Os arquivos de arrecadação precisam ter Nº Ligação, Mês, Ano, Valor Pago e Data Pagto.</li>
     </ol>
     <div class="drop" id="drop">Arraste os arquivos .xlsx e .csv para cá</div>
+  </section>
+
+  <!-- Resumo executivo (v3.1): resposta direta à pergunta do estudo -->
+  <section id="view-exec" hidden>
+    <div class="card exec-topo">
+      <p class="exec-pergunta">Aplicar o termo faz o cliente deixar de ser adimplente?</p>
+      <div class="exec-veredito" id="exVeredito"></div>
+      <p class="nota-secao" id="exEscopo"></p>
+    </div>
+    <div class="card">
+      <h2>O que aconteceu depois do termo</h2>
+      <ul class="exec-frases" id="exFrases"></ul>
+    </div>
+    <div class="card">
+      <div class="card-topo">
+        <div><h2>De onde partiu → para onde foi</h2><p class="nota-secao">Classificação antes do termo (à esquerda) e depois (à direita). A espessura de cada faixa é a quantidade; passe o mouse para ver os números e clique para abrir a lista na aba Clientes.</p></div>
+      </div>
+      <div class="legenda sk-leg" id="exSkLeg"></div>
+      <p class="nota-secao" id="exSkNota" style="margin:0"></p>
+      <div class="bloco-rolagem"><div class="sankey" id="exSk"></div></div>
+    </div>
+    <p class="nota-secao" id="exRodape"></p>
   </section>
 
   <section id="view-resumo" hidden>
@@ -479,6 +522,8 @@ details.param summary{cursor:pointer;color:var(--azul);font-weight:600;font-size
           </label>
           <label class="field">Adimplente: pagou ao menos (%) <input type="number" id="pAdim" min="1" max="100" step="0.1"></label>
           <label class="field">Flutuante: pagou ao menos (%) <input type="number" id="pFlut" min="1" max="100" step="0.1"></label>
+          <label class="field">Semáforo: verde até (p.p. de piora líquida) <input type="number" id="pSemV" min="0" max="100" step="0.5"></label>
+          <label class="field">Semáforo: amarelo até (p.p.) <input type="number" id="pSemA" min="0" max="100" step="0.5"></label>
         </div>
         <div id="cortesBox" hidden><p class="nota-secao" style="margin:4px 0 2px"><b>Situações de corte</b> (coluna Situacao Ligacao da última conta no faturamento): ligação com uma destas situações é tratada como cortada, e os meses sem conta depois do corte contam como não pagos.</p><div class="cortes" id="cortes"></div></div>
         <p class="nota-secao">Os percentuais valem para o período depois do termo. A classificação antes do termo é fixa: 12 meses, com 10 a 12 meses pagos para Adimplente, 6 a 9 para Flutuante e 1 a 5 para Inadimplente. <button class="btn-link" id="pPadrao" type="button">Restaurar padrão</button></p>
@@ -1447,7 +1492,7 @@ self.onmessage = async ev => {
 (() => {
 'use strict';
 // Aumente a versão a cada atualização publicada, para identificar a versão em uso e poder voltar à anterior
-const VERSAO_SITE = '3.0';
+const VERSAO_SITE = '3.1';
 const $ = s => document.querySelector(s);
 $('#versao').textContent = 'v' + VERSAO_SITE;
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -1476,10 +1521,10 @@ const RES = ['Permaneceu', 'Piorou', 'Melhorou', 'Acompanhamento insuficiente', 
 const COR = { melhora: '#1F8A4C', melhora2: '#7CC49A', permanece: '#E0B43C', piora: '#C62828', insuf: '#9AA6B2', antes: '#102840', depois: '#176b9c' };
 
 let D = null;
-const st = { sk: 'origem', vig: 0, sel: {}, tab: 'resumo', page: 0, list: null, ev: 'todos', tk: 'rel', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
+const st = { sk: 'origem', vig: 0, sel: {}, tab: 'exec', page: 0, list: null, ev: 'todos', tk: 'rel', mat: 'qtd', a: 'qtd', grupo: 'cid', sort: {}, mais: false };
 
 /* ---------- parâmetros (guardados neste navegador) ---------- */
-const paramPadrao = () => ({ unidade: 'mat', modo: 'cred', fat: true, tol: 1, min: 3, adim: 83.3, flut: 50, dataTermo: 'neg', corteVals: null });
+const paramPadrao = () => ({ unidade: 'mat', modo: 'cred', fat: true, tol: 1, min: 3, adim: 83.3, flut: 50, dataTermo: 'neg', corteVals: null, semV: 5, semA: 15 });
 let P = paramPadrao();
 try {
   const s = JSON.parse(localStorage.getItem('painel-termos-param-v5') || 'null');
@@ -2093,6 +2138,7 @@ function montaParam(){
   });
   document.querySelectorAll('[data-dt]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dt === (P.dataTermo === 'apl' ? 'apl' : 'neg'))));
   $('#pAdim').value = String(P.adim); $('#pFlut').value = String(P.flut);
+  $('#pSemV').value = String(P.semV); $('#pSemA').value = String(P.semA);
   $('#pTol').value = String(P.tol);
   // com faturamento e Vencimento na arrecadação, a conta é ligada ao pagamento pela Data de crédito
   const porConta = usaFat() && D.temVenc;
@@ -2125,6 +2171,9 @@ $('#selVig').onchange = e => { st.vig = +e.target.value; derive(); refresh(); };
 $('#pMin').onchange = e => { P.min = Math.max(1, Math.min(12, Math.round(+e.target.value) || 3)); e.target.value = P.min; mudaParam(); };
 $('#pAdim').onchange = e => { P.adim = Math.max(1, Math.min(100, +String(e.target.value).replace(',', '.') || 83.3)); if (P.flut > P.adim) P.flut = P.adim; montaParam(); mudaParam(); };
 $('#pFlut').onchange = e => { P.flut = Math.max(1, Math.min(P.adim, +String(e.target.value).replace(',', '.') || 50)); montaParam(); mudaParam(); };
+// limites do semáforo do Resumo executivo (v3.1): verde até semV, amarelo até semA (p.p. de piora líquida)
+$('#pSemV').onchange = e => { P.semV = Math.max(0, +String(e.target.value).replace(',', '.') || 0); if (P.semA < P.semV) P.semA = P.semV; montaParam(); salvaParam(); refresh(); };
+$('#pSemA').onchange = e => { P.semA = Math.max(P.semV, +String(e.target.value).replace(',', '.') || 0); montaParam(); salvaParam(); refresh(); };
 $('#pPadrao').onclick = () => { const d = P.dataTermo, un = P.unidade; P = paramPadrao(); P.dataTermo = d; P.unidade = un; montaParam(); mudaParam(); };
 $('#cortes').addEventListener('change', () => {
   const sl = D.dict.sitLig || [];
@@ -2350,6 +2399,7 @@ function ligaSankey(el, clicavel){
 ligaSankey($('#sankey'), true);
 ligaSankey($('#skCompT'), true);
 ligaSankey($('#skCompC'), false);
+ligaSankey($('#exSk'), true);
 ligaSankey($('#rcSkA'), false); ligaSankey($('#rcSkB'), false); ligaSankey($('#rcTraj'), false);
 
 // Gráfico A: os mesmos clientes em cada classificação antes e depois do termo (só quem tem histórico antes)
@@ -2876,6 +2926,87 @@ function renderComp(){
   renderTicketComp(kT, kC);
 }
 
+/* ---------- Resumo executivo (v3.1, definido pelo usuário) ----------
+   Responde: aplicar o termo faz o cliente deixar de ser adimplente? Segue a configuração e os filtros da tela; a amostra
+   sem termo usa só os filtros que existem para ela. Semáforo pela piora líquida: % dos adimplentes antes do termo que
+   pioraram, menos o mesmo % na amostra sem termo (verde até P.semV p.p., amarelo até P.semA, vermelho acima). */
+const COR_CLASSE = ['#102840', '#176b9c', '#E8710A', '#9a3412'];
+// percentuais inteiros que somam 100 (maior resto), para as frases "de cada 100"
+function cada100(v){
+  v = Array.from(v);
+  const t = v.reduce((a, b) => a + b, 0); if (!t) return v.map(() => 0);
+  const x = v.map(a => a / t * 100), f = x.map(Math.floor);
+  let r = 100 - f.reduce((a, b) => a + b, 0);
+  x.map((a, i) => [a - f[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (r > 0){ f[i]++; r--; } });
+  return f;
+}
+const barra100 = c => `<span class="barra100">${c.map((v, i) => v ? `<span style="width:${v}%;background:${COR_CLASSE[i]}"></span>` : '').join('')}</span>` +
+  `<span class="leg100">${c.map((v, i) => `<span><i style="background:${COR_CLASSE[i]}"></i>${FAIXAS[i]} ${v}</span>`).join('')}</span>`;
+function renderExec(){
+  const k = keepMask(), T = resumoGrupo(D.n, D, k);
+  const nC = D.C ? D.C.n : 0, fsC = D.filtros.filter(f => f.getC && st.sel[f.id]);
+  const kC = new Uint8Array(nC);
+  for (let u = 0; u < nC; u++) kC[u] = fsC.every(f => st.sel[f.id].has(f.getC(u))) ? 1 : 0;
+  const C = resumoGrupo(nC, D.C, kC);
+  const un = nomeUn(), un1 = un.slice(0, -1), porTermo = P.unidade === 'evento', pp = v => (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') + nf1.format(Math.abs(v) * 100) + ' p.p.';
+  const pT = div(T.adimPio, T.adimA), pC = div(C.adimPio, C.adimA), liq = pT != null && pC != null ? pT - pC : null;
+  // veredito
+  const nivel = liq == null ? -1 : liq * 100 <= P.semV + 1e-9 ? 0 : liq * 100 <= P.semA + 1e-9 ? 1 : 2;
+  const cores = [['var(--melhora)', 'var(--melhora-texto)'], ['var(--permanece)', 'var(--permanece-texto)'], ['var(--piora)', 'var(--piora-texto)']];
+  const ver = $('#exVeredito');
+  ver.style.setProperty('--farol', nivel < 0 ? '#9AA6B2' : cores[nivel][0]);
+  ver.style.setProperty('--farol-texto', nivel < 0 ? 'var(--insuf-texto)' : cores[nivel][1]);
+  const TIT = ['Efeito baixo: o termo quase não muda a adimplência.', 'Efeito moderado: o termo aumenta a perda de clientes adimplentes.', 'Efeito alto: o termo faz muitos clientes adimplentes deixarem de pagar em dia.'];
+  const pouco = C.adimA < 30;
+  ver.innerHTML = `<span class="farol" aria-hidden="true">${[2, 1, 0].map(i => `<i class="${i === nivel ? 'on' : ''}"></i>`).join('')}</span>` +
+    `<span class="num">${liq == null ? '–' : pp(liq)}<small>piora líquida dos adimplentes</small></span>` +
+    `<span class="txt">${liq == null
+      ? (!T.adimA ? `<b>Sem resposta com esses filtros:</b> não há ${un} adimplentes antes do termo com acompanhamento suficiente.` : '<b>Sem comparação:</b> a base guardada não tem a amostra de clientes sem termo, ou ela não tem adimplentes com esses filtros. Clique em ↻ Atualizar para ler os arquivos de novo.')
+      : `<b>${TIT[nivel]}</b> ${porTermo ? 'Entre os termos aplicados a clientes adimplentes' : 'Entre os clientes adimplentes antes do termo'}, <b>${pct(pT)}</b> pioraram depois dele; entre os clientes sem termo, no mesmo período, <b>${pct(pC)}</b>. ` +
+        (liq > 0.0005 ? `A diferença, ${pp(liq)}, é a piora que se pode atribuir ao termo.` : liq < -0.0005 ? 'Com termo, a piora foi menor que a dos clientes sem termo.' : 'A piora foi igual nos dois grupos.') +
+        ` <span class="nota-secao">Semáforo: verde até +${nf1.format(P.semV)} p.p., amarelo até +${nf1.format(P.semA)} p.p., vermelho acima.</span>` +
+        (pouco ? ` <span class="nota-secao">Atenção: a amostra sem termo tem só ${plural(C.adimA, 'adimplente comparável', 'adimplentes comparáveis')}; o resultado pode variar bastante.</span>` : '')}</span>`;
+  // escopo
+  const ativos = D.filtros.filter(f => st.sel[f.id]), semC = ativos.filter(f => !f.getC);
+  $('#exEscopo').innerHTML = `${porTermo ? plural(T.tot, 'termo aplicado', 'termos aplicados') : plural(T.tot, 'cliente com termo', 'clientes com termo')} de ${amLabel(D.tMeses[0])} a ${amLabel(Math.min(D.tMeses[D.tMeses.length - 1], st.vig - 1))}, acompanhados até ${amLabel(D.am0 + D.L)} · contagem ${P.unidade === 'evento' ? 'por termo' : 'por cliente'} · ${usaFat() ? 'com faturamento' : 'só arrecadação'}` +
+    ` · amostra de ${plural(C.tot, 'cliente', 'clientes')} sem termo para comparação.` +
+    (ativos.length ? ` <b>Filtros ativos:</b> ${ativos.map(f => `${esc(f.nome)} (${esc(resumoSel(f))})`).join(', ')}.` +
+      (semC.length ? ` Na amostra sem termo não valem: ${semC.map(f => esc(f.nome)).join(', ')}.` : '') : '');
+  // frases
+  const fr = [];
+  if (T.adimA){
+    const c = cada100(T.M[0]);
+    fr.push([nivel === 2 ? 'alerta' : '', `De cada <b>100 ${porTermo ? 'termos aplicados a clientes adimplentes' : 'clientes adimplentes antes do termo'}</b>, <b>${c[0]}</b> continuaram adimplentes, <b>${c[1]}</b> passaram a flutuantes, <b>${c[2]}</b> a inadimplentes e <b>${c[3]}</b> não pagaram mais nenhum mês (base: ${porTermo ? plural(T.adimA, 'termo', 'termos') : plural(T.adimA, 'cliente adimplente', 'clientes adimplentes')} com acompanhamento suficiente).` + barra100(c)]);
+  }
+  if (C.adimA){
+    const c = cada100(C.M[0]);
+    fr.push(['', `Nos <b>clientes sem termo</b>, no mesmo período, de cada 100 adimplentes <b>${c[0]}</b> continuaram adimplentes, <b>${c[1]}</b> passaram a flutuantes, <b>${c[2]}</b> a inadimplentes e <b>${c[3]}</b> não pagaram mais nenhum mês. É a mudança normal da base, sem termo.` + barra100(c)]);
+  }
+  if (T.adimA && C.adimA){
+    const gT = div(T.adimInad, T.adimA), gC = div(C.adimInad, C.adimA);
+    fr.push([gT - gC > P.semV / 100 ? 'alerta' : '', `<b>Perda grave</b> (de adimplente para inadimplente ou nunca pagou): <b>${pct(gT)}</b> com termo e <b>${pct(gC)}</b> sem termo (${pp(gT - gC)}).`]);
+  }
+  if (T.comp){
+    const a = [T.pio, T.igu, T.mel].map(v => v / T.comp), b = C.comp ? [C.pio, C.igu, C.mel].map(v => v / C.comp) : null;
+    fr.push(['', `Considerando todos os <b>${plural(T.comp, un1 + ' comparável', un + ' comparáveis')}</b> (de qualquer classificação antes), <b>${pct(a[0])}</b> pioraram, <b>${pct(a[1])}</b> permaneceram e <b>${pct(a[2])}</b> melhoraram` +
+      (b ? `; sem termo, ${pct(b[0])}, ${pct(b[1])} e ${pct(b[2])}.` : '.')]);
+  }
+  if (T.naoPag){
+    const rT = div(T.recup, T.naoPag), rC = div(C.recup, C.naoPag);
+    fr.push([rC != null && rT > rC + 0.0005 ? 'bom' : '', `Entre os que já eram <b>inadimplentes ou nunca pagavam</b> antes do termo (${nf0.format(T.naoPag)}), <b>${pct(rT)}</b> passaram a pagar com regularidade (Adimplente ou Flutuante)` +
+      (rC != null ? `; sem termo, ${pct(rC)}.` : '.')]);
+  }
+  fr.push(['mudo', `Fora destas contas: ${plural(T.insufTot, un1, un)} com acompanhamento insuficiente (menos de ${plural(P.min, 'mês', 'meses')} depois do termo, em geral termos recentes)` +
+    (T.semHist ? ` e ${plural(T.semHist, un1, un)} sem histórico antes do termo` : '') + `, de ${plural(T.tot, un1, un)}. Os detalhes estão na Análise detalhada.`]);
+  $('#exFrases').innerHTML = fr.map(([c, h]) => `<li class="${c}">${h}</li>`).join('');
+  renderSankey(M5(T), [0, 1, 2, 3], { el: '#exSk', leg: '#exSkLeg', nota: '#exSkNota', onde: 'veja as frases acima', nome: [un1, un] });
+  // mesma base das frases: só os comparáveis; quem ficou de fora está na última frase
+  $('#exSkNota').textContent = `O fluxo mostra os ${plural(T.comp, un1 + ' comparável', un + ' comparáveis')} (com classificação antes e depois); os demais estão na última frase acima.`;
+  $('#exRodape').textContent = 'Como ler: antes = os 12 meses anteriores ao termo; depois = do mês seguinte ao termo até o último mês fechado (no máximo 12 meses). ' +
+    'Adimplente pagou ao menos 10 de 12 meses antes e ' + nf1.format(P.adim) + '% dos meses depois; Flutuante, de 6 a 9 meses antes e ' + nf1.format(P.flut) + '% depois; Inadimplente, menos que isso; Nunca pagou, nenhum mês. ' +
+    'Piora líquida = % dos adimplentes que pioraram com termo menos o mesmo % na amostra de clientes sem termo, que recebe um mês de referência com a mesma distribuição dos termos.';
+}
+
 /* ---------- Reincidentes (v3.0, pedido do usuário) ----------
    Só as matrículas com mais de um termo analisado; cada termo é uma unidade, em duas visões:
    A, "Antes do 1º termo": o período antes de todos os termos é o do primeiro termo (como a contagem por termo);
@@ -3199,10 +3330,10 @@ async function exportCsv(){
 function showTab(t){
   st.tab = t;
   document.querySelectorAll('[data-tab]').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
-  $('#view-resumo').hidden = t !== 'resumo'; $('#view-cons').hidden = t !== 'cons'; $('#view-comp').hidden = t !== 'comp'; $('#view-reinc').hidden = t !== 'reinc';
-  if (t === 'resumo') renderResumo(); else if (t === 'comp') renderComp(); else if (t === 'reinc') renderReinc(); else renderCons(true);
+  $('#view-exec').hidden = t !== 'exec'; $('#view-resumo').hidden = t !== 'resumo'; $('#view-cons').hidden = t !== 'cons'; $('#view-comp').hidden = t !== 'comp'; $('#view-reinc').hidden = t !== 'reinc';
+  if (t === 'exec') renderExec(); else if (t === 'resumo') renderResumo(); else if (t === 'comp') renderComp(); else if (t === 'reinc') renderReinc(); else renderCons(true);
 }
-function refresh(){ if (!D) return; st.list = null; if (st.tab === 'resumo') renderResumo(); else if (st.tab === 'comp') renderComp(); else if (st.tab === 'reinc') renderReinc(); else renderCons(true); }
+function refresh(){ if (!D) return; st.list = null; if (st.tab === 'exec') renderExec(); else if (st.tab === 'resumo') renderResumo(); else if (st.tab === 'comp') renderComp(); else if (st.tab === 'reinc') renderReinc(); else renderCons(true); }
 
 let pasta = null;
 const temPicker = 'showDirectoryPicker' in window;
@@ -3264,7 +3395,7 @@ liga('data-mat', 'mat', () => renderMatriz(keepMask()));
 document.querySelectorAll('[data-sk]').forEach(b => b.onclick = () => {
   st.sk = b.dataset.sk;
   document.querySelectorAll('[data-sk]').forEach(x => { const on = x.dataset.sk === st.sk; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); });
-  if (st.tab === 'comp') renderComp(); else if (st.tab === 'reinc') renderReinc(); else renderMatriz(keepMask());
+  if (st.tab === 'comp') renderComp(); else if (st.tab === 'reinc') renderReinc(); else if (st.tab === 'exec') renderExec(); else renderMatriz(keepMask());
 });
 liga('data-a', 'a', () => renderA(keepMask()));
 liga('data-grupo', 'grupo', () => renderGrupo(keepMask()));
